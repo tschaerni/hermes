@@ -1,0 +1,4 @@
+Currently there are some known bugs,
+- screenlog did not close correctly
+- some parse strings fail or parse unnecessary strings and write them to the playerfiles
+- the bounty system didn't get you a reward
