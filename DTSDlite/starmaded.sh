@@ -77,11 +77,6 @@ then
 	echo "No playerfile directory detected creating for logging"
 	as_user "mkdir $PLAYERFILE"
 fi
-if [ ! -d "$GATEWHITELIST" ]
-then
-	echo "No gatewhitelist directory detected creating for logging"
-	as_user "mkdir $GATEWHITELIST"
-fi
 if [ ! -d "$MAILFILE" ]
 then
 	echo "No mailfile directory detected creating for logging"
@@ -687,8 +682,6 @@ randomhelptips &
 sectorincome &
 sectorfees &
 create_rankscommands
-# Create the Gate whitelist file if it doesnt exist
-	mkdir -p $GATEWHITELIST
 # Create the playerfile folder if it doesnt exist
 	mkdir -p $PLAYERFILE
 # This while loop runs as long as starmade stays running    
@@ -1530,10 +1523,6 @@ if [ ! -f $STATIONLOG ]
 then
 	as_user "touch $STATIONLOG"
 fi
-if [ ! -f $GATELOG ]
-then
-	as_user "touch $GATELOG"
-fi
 if echo $DESTROYSTR | grep "SHIP" >/dev/null
 then
 #	echo "Ship destroyed"
@@ -1561,8 +1550,6 @@ then
 #         echo $DESSTATION
 	REMOVEDESTATION="/^${DESSTATION}/d" 
 	as_user "sed -i '$REMOVEDESTATION' '$STATIONLOG'"
-	REMOVEDGATE="/LinkedEntity: ${DESSTATION}/d"
-	as_user "sed -i '$REMOVEDGATE' '$GATELOG'"
 	if grep -q "${DESSTATION}" $SECTORFILE
 	then
 		FACTION=$(grep "${DESSTATION}" $SECTORFILE | cut -d" " -f3)
@@ -2193,10 +2180,8 @@ RANKCOMMANDS=$STARTERPATH/logs/rankcommands.log #The file that contains all the 
 SHIPLOG=$STARTERPATH/logs/ship.log #The file that contains a record of all the ships with their sector location and the last person who entered it
 CHATLOG=$STARTERPATH/logs/chat.log #The file that contains a record of all chat messages sent
 BOUNTYLOG=$STARTERPATH/logs/bounty.log #The file that contains all bounty records
-GATELOG=$STARTERPATH/logs/gates.log #The file that contains all the jump gates and their details
 PLAYERFILE=$STARTERPATH/playerfiles #The directory that contains all the individual player files which store player information
 MAILFILE=$STARTERPATH/mail #The directory that contains all player mail
-GATEWHITELIST=$STARTERPATH/gatewhitelist #The directory that contains all the individual player files which store who is allowed to access their jump gates
 KILLLOG=$STARTERPATH/logs/kill.log #The file with a record of all deaths on the server
 ADMINLOG=$STARTERPATH/logs/admin.log #The file with a record of all admin commands issued
 GUESTBOOK=$STARTERPATH/logs/guestbook.log #The file with a record of all the logouts on the server
@@ -2239,18 +2224,6 @@ BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering
 BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
 SECTORREFUND=90 #The percentage of credits back from selling a sector
 #------------------------Game settings----------------------------------------------------------------------------
-GATECOST=50 #Number of voting points needed to spawn a gate
-#Gate level stats. GATETEIR[LEVEL]equals\"vote-cost warm-up-time cool-down-time\" Can be expanded following the same format infinitely
-GATETEIR[1]=\"0 15 180\"
-GATETEIR[2]=\"2 13 160\"
-GATETEIR[3]=\"3 11 140\"
-GATETEIR[4]=\"5 9 120\"
-GATETEIR[5]=\"8 7 110\"
-GATETEIR[6]=\"10 5 90\"
-GATETEIR[7]=\"15 5 80\"
-GATETEIR[8]=\"20 5 70\"
-GATETEIR[9]=\"30 5 60\"
-GATEREFUND=90 #percentage of the cost of the gate that players get back
 VOTECHECKDELAY=10 #The time in seconds between each check of starmade-servers.org
 CREDITSPERVOTE=1000000 # The number of credits a player gets per voting point.
 FOLDLIMIT=900 #Due to the way bash square roots numbers, this is the square of the distance limit to be more accurate with distances
@@ -2271,7 +2244,6 @@ CurrentVotes=0
 Bounty=0
 BountyPlaced=0
 WarpTeir=1
-JumpDisabled=0
 CommandConfirm=0
 CurrentIP=0.0.0.0
 CurrentCredits=0
@@ -2302,11 +2274,11 @@ as_user "$PLAYERCREATE"
 }
 write_rankcommands() {
 CREATERANK="cat > $RANKCOMMANDS <<_EOF_
-Ensign MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
-Lieutenant MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
-Commander MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
-Captain MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN RESTART DESPAWN KILL BANHAMMER TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
-Admiral MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE MAILALL ADMINADDJUMP ADMINDELETEJUMP RANKSET RANKUSER BANHAMMER KILL WHITEADD BANPLAYER UNBAN SHUTDOWN RESTART CREDITS IMPORT EXPORT DESPAWN LOADSHIP GIVE GIVESET KICK GODON GODOFF INVISION INVISIOFF TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART MYDETAILS ADMINCOOLDOWN ADMINREADFILE THREADDUMP GIVESET GIVEMETA BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
+Ensign MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
+Lieutenant MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
+Commander MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
+Captain MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN RESTART DESPAWN KILL BANHAMMER TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
+Admiral MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE MAILALL RANKSET RANKUSER BANHAMMER KILL WHITEADD BANPLAYER UNBAN SHUTDOWN RESTART CREDITS IMPORT EXPORT DESPAWN LOADSHIP GIVE GIVESET KICK GODON GODOFF INVISION INVISIOFF TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART MYDETAILS ADMINCOOLDOWN ADMINREADFILE THREADDUMP GIVESET GIVEMETA BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
 Admin -ALL-
 _EOF_"
 as_user "$CREATERANK"
@@ -2315,8 +2287,7 @@ write_tipfile() {
 CREATETIP="cat > $TIPFILE <<_EOF_
 !HELP is your friend! If you are stuck on a command, use !HELP <Command>
 Want to get from place to place quickly? Try !FOLD
-Ever wanted to be rewarded for voting for the server? Vote now at starmade-servers.org to get voting points!
-Been voting a lot lately? You can spend your voting points on a Jump Gate! Try !ADDJUMP 
+Ever wanted to be rewarded for voting for the server? Vote now at starmade-servers.org to get voting points! 
 Want to reward people for killing your arch enemy? Try !POSTBOUNTY
 Fancy becoming a bounty hunter? Use !LISTBOUNTY to see all bounties
 Got too much money? Store some in your bank account with !DEPOSIT
@@ -3162,335 +3133,6 @@ else
 fi
 }
 
-#Fold/Jump System Commands
-function COMMAND_FOLD(){ 
-#Warps you and your ship to the specified sector if it is within range.
-#USAGE: !FOLD <X> <Y> <Z>
-	if [ "$#" -ne "4" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FOLD <X> <Y> <Z>\n'"
-	else
-		CONTROLLINGTYPE=$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)
-		CONTROLLINGOBJECT=$(grep "PlayerControllingObject=" $PLAYERFILE/$1 | cut -d= -f2)
-		if [[ "${CONTROLLINGTYPE}" == "Ship" ]] && [[ "$(grep -- "\{$CONTROLLINGOBJECT\}" $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
-		then
-			OLDPLAYERLASTFOLD=$(grep PlayerLastFold $PLAYERFILE/$1 | cut -d= -f2- | tr -d ' ')
-			CURRENTTIME=$(date +%s)
-			ADJUSTEDTIME=$(( $CURRENTTIME - 600 ))
-			if [ "$ADJUSTEDTIME" -gt "$OLDPLAYERLASTFOLD" ]
-			then
-				SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-				DISTANCE=$(echo "($(echo ${SECTOR} | cut -d"," -f1)- $2)^2+($(echo ${SECTOR} | cut -d"," -f2)- $3)^2+($(echo ${SECTOR} | cut -d"," -f3)- $4)^2" | bc)
-				if [ "$DISTANCE" -le "$FOLDLIMIT" ]
-				then
-					WARMUP=50
-					as_user "sed -i 's/PlayerLastFold=$OLDPLAYERLASTFOLD/PlayerLastFold=$CURRENTTIME/g' $PLAYERFILE/$1"
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Engaging fold calculations please allow 60 seconds to engage\n'"
-					while [ "$WARMUP" -ge 0 ] && [[ "$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)" == "Ship" ]] && [[ "$(grep -- "\{$CONTROLLINGOBJECT\}" $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
-					do
-						sleep 1
-						let WARMUP--
-					done
-					if [[ "$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)" == "Ship" ]] && [[ "$(grep -- "\{$CONTROLLINGOBJECT\}" $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
-					then
-						COUNTDOWN=10
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Engaging fold in...\n'"
-						while [ $COUNTDOWN -ge 0 ] && [[ "$(grep "PlayerControllingObject=" $PLAYERFILE/$1 | cut -d= -f2)" == "$CONTROLLINGOBJECT" ]] && [[ "$(grep -- "\{$CONTROLLINGOBJECT\}" $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
-						do
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $COUNTDOWN ...\n'"
-							sleep 1
-							let COUNTDOWN--
-						done
-						if [[ "$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)" == "Ship" ]] && [[ "$(grep -- "\{$CONTROLLINGOBJECT\}" $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
-						then
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Folding Space...\n'"
-							sleep 0.1
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/change_sector_for $1 $2 $3 $4\n'"
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Exiting Fold...\n'"
-							sleep 0.1
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Fold Successful! You have emerged in sector $2,$3,$4\n'"
-						else
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your ship entered a state that means it cannot activate its fold drive! Your engines need to cool down still before you can jump again!\n'"
-						fi
-					else
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your ship entered a state that means it cannot activate its fold drive! Your engines need to cool down still before you can jump again!\n'"
-					fi
-				else
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your fold engines dont have the power to launch you that far!\n'"
-				fi
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please allow your fold drive to cooldown. It will take $((600-($(date +%s)-$(grep "PlayerLastFold=" $PLAYERFILE/$1 | cut -d= -f2)))) seconds.\n'"
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please enter an undocked ship to use a fold drive!\n'"
-		fi
-	fi
-}
-function COMMAND_ADDJUMP(){ 
-#Converts the station you are currently in into a functioning teir 1 jump gate that belongs to you.
-#USAGE: !ADDJUMP <JumpName>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !ADDJUMP <Jump name>\n'"
-	else
-		if [ ! -e $GATELOG ]
-		then
-			as_user "touch $GATELOG"
-		fi
-#		Search for a gate by that name already existing
-		if ! grep -q $2 $GATELOG
-		then
-#			Gets players location and faction
-			SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-			CONTROLLINGOBJECT=$(grep "PlayerControllingObject=" $PLAYERFILE/$1 | cut -d= -f2)
-			CONTROLLINGTYPE=$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)
-			if [[ "$CONTROLLINGTYPE" == "Spacestation" ]]
-			then
-				if ! grep -q ${SECTOR} $GATELOG
-				then
-#					Checks if player can afford the gate
-					VOTINGPOINTS=$(grep "VotingPoints=" $PLAYERFILE/$1 | cut -d= -f2)
-					if [ $VOTINGPOINTS -ge $GATECOST ]
-					then
-#						Removes the cost of the gate from the players voting points
-						let "VOTESSAVED=$VOTINGPOINTS-$GATECOST"
-						as_user "sed -i 's/VotingPoints=$VOTINGPOINTS/VotingPoints=$VOTESSAVED/g' $PLAYERFILE/$1"
-#						Add the gate to the gates.log file
-						echo "Name: $2 Sector: ${SECTOR[$1]} Level: 1 Creator: $1 TotalCost: $GATECOST LinkedEntity: ${CONTROLLINGOBJECT}" >> $GATELOG
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 If someone destroys the station ${CONTROLLINGOBJECT} the the gate will be destroyed and you will not be refunded\n'"
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You can upgrade the Gate by typing !UPGRADEJUMP <Name of gate>!\n'"
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 It is in sector ${SECTOR} and belongs to $1!\n'"
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have sucessfully spawned a gate called $2!\n'"
-					else
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You dont have enough voting points to spawn a gate! You need $GATECOST but only have $VOTINGPOINTS\n'"
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 you can get voting points by voting for the server at starmade-servers.com and typing !GETVOTES ingame!\n'"
-					fi
-				else
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 There is already a gate in your sector!\n'"
-				fi
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You can only build a jumpgate on a station! Please enter a build block on one to create this jumpgate.\n'"
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 There is already a gate with that name!\n'"
-		fi
-	fi
-}
-function COMMAND_JUMPLIST(){ 
-#Lists all the jump gates that exist in the universe
-#USAGE: !JUMPLIST
-	if [ "$#" -ne "1" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !JUMPLIST\n'"
-	else
-#		Simple for loop that pm's the player all the available jumps
-		OLD_IFS=$IFS
-		IFS=$'\n'
-		for LINE in $(cat $GATELOG)
-		do
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 ([Name: $(echo $LINE | cut -d" " -f2)] [Sector: $(echo $LINE | cut -d" " -f4)]) \n'"
-		done
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The jump gates that exist are:\n'"
-		IFS=$OLD_IFS
-	fi
-}
-function COMMAND_JUMP(){ 
-#Jumps you to the specified jump gate via the gate you are curently at. Has a warm up and cooldown dependant on the launching gate
-#USAGE: !JUMP <DestinationGateName>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !JUMP <Destination Name>\n'"
-	else
-		if [[ $(grep "JumpDisabled=" $PLAYERFILE/$1 | cut -d= -f2) -le $(date +%s) ]]
-		then
-			SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-			CONTROLLINGTYPE=$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)
-			CONTROLLINGOBJECT=$(grep "PlayerControllingObject=" $PLAYERFILE/$1 | cut -d= -f2)
-			if [[ "$CONTROLLINGTYPE" == "Ship" ]] && [[ "$(grep -- "\{$CONTROLLINGOBJECT\}" $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
-			then
-#				Check if the player is in a jump gate sector (-- tells grep its the end of parameters due to negative sectors confusing it)
-				if grep -q -- "$SECTOR" $GATELOG
-				then
-					GATEINFO=($(grep -- "Sector: ${SECTOR[$1]}" $GATELOG))
-					if [ ! -e $GATEWHITELIST/${GATEINFO[7]} ]
-					then
-						echo "AllPlayers" >> $GATEWHITELIST/${GATEINFO[7]}
-					fi
-					if [ ${GATEINFO[7]} = $1 ] || [ ${GATEINFO[7]} = "All" ] || grep -q $1 $GATEWHITELIST/${GATEINFO[7]} || grep -q "AllPlayers" $GATEWHITELIST/${GATEINFO[7]}
-					then
-#						Checks if the destination gate exists
-						if grep -q -- " $2 " $GATELOG
-						then
-#							Prepares for jump
-							WARMUP=$(echo ${GATETEIR[${GATEINFO[5]}]} | cut -d" " -f2)
-							COOLTIME=$(($(date +%s)+$(echo ${GATETEIR[${GATEINFO[5]}]} | cut -d" " -f3)+$WARMUP))
-							as_user "sed -i 's/JumpDisabled=$(grep "JumpDisabled=" $PLAYERFILE/$1 | cut -d= -f2)/JumpDisabled=$COOLTIME/g' $PLAYERFILE/$1"
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your ship is preparing for a Jump! Please dont leave the vacinity of the jumpgate or your Jump will fail!\n'"
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Jump in...\n'"
-#							Sets the time delay before the player is teleported, based on the level of the gate
-#							Provides the user with a countdown
-							while [ $WARMUP -ge 0 ]
-							do
-								as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $WARMUP...\n'"
-								sleep 1
-								let WARMUP--
-							done
-#							Gets the players sector again, to make sure theyre in the same sector still
-							SECTORA=$SECTOR
-							SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-							CONTROLLINGOBJECT2=$(grep "PlayerControllingObject=" $PLAYERFILE/$1 | cut -d= -f2)
-							if [[ "$SECTORA" == "$SECTOR" ]] && [[ "$CONTROLLINGOBJECT2" == "$CONTROLLINGOBJECT" ]] && [[ "$(grep -- "\{$CONTROLLINGOBJECT\}" $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
-							then
-#								teleports the user to the destination gate
-								as_user "screen -p 0 -S $SCREENID -X stuff $'/change_sector_for $1 $(grep " $2 " $GATELOG | cut -d":" -f3 | cut -d" " -f2 | tr "," " ")\n'"
-								as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have sucessfully jumped to $2!\n'"
-							else
-#								user moved, so teleport doesnt happen
-								as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You went outside the range of the gate or your ship entered an un-jumpable state! Your jump failed\n'"
-							fi
-						else
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 There is no gate by that name! (Jump gates are case sensitive)\n'"
-						fi
-					else
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You cannot use this gate! It belongs to ${GATEINFO[7]}\n'"		
-					fi
-				else	
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 There is no jump gate where you are. Use !JUMPLIST to get all the jump gates available\n'"
-				fi
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You cannot jump unless you are in an undocked ship!\n'"
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your ships engines are still cooling down from your last jump. They will take roughly $(($(grep "JumpDisabled=" $PLAYERFILE/$1 | cut -d= -f2)-$(date +%s))) seconds\n'"
-		fi
-	fi
-}
-function COMMAND_UPGRADEJUMP(){
-#Increases the teir of the specified jump gate by 1 at the cost of voting points. This reduces warm up and cooldown time.
-#USAGE: !UPGRADEJUMP <JumpName>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !UPGRADEJUMP <JumpName>\n'"
-	else
-#		Checks if the gate exists		
-		if grep -q -- $2 $GATELOG
-		then
-			GATEINFO=($(grep -- " $2 " $GATELOG))
-#			Checks if the player has faction permission to upgrade the gate, or if the gate is faction All, check if theyre the creator of it	
-			if [[ "${GATEINFO[7]}" == "$1" ]]
-			then
-#				CHecks the gate can be upgraded (its level is less than the number of defined levels)
-				if [ "${GATEINFO[5]}" -lt "${#GATETEIR[@]}" ]
-				then
-#					Checks if the player has enough voting points to upgrade the gate
-					VOTINGPOINTS=$(grep "VotingPoints=" $PLAYERFILE/$1 | cut -d= -f2)
-					if [ $VOTINGPOINTS -ge $(echo ${GATETEIR[$((${GATEINFO[5]}+1))]} | cut -d" " -f1) ]
-					then
-#						Subtracts the cost of the upgrade from the players account
-						let "VOTESSAVED=$VOTINGPOINTS-$(echo ${GATETEIR[$((${GATEINFO[5]}+1))]} | cut -d" " -f1)"
-						as_user "sed -i 's/VotingPoints=.*/VotingPoints=$VOTESSAVED/g' $PLAYERFILE/$1"
-#						Alters the total cost of the gate so far
-						let "TOTALCOST=${GATEINFO[9]}+$(echo ${GATETEIR[$((${GATEINFO[5]}+1))]} | cut -d" " -f1)"
-#						edits the level of the gate
-						GATEINFO[5]=$((${GATEINFO[5]} + 1))
-						GATEINFO[9]=$TOTALCOST
-						as_user "sed -i 's/Name: ${GATEINFO[1]} .*/$(echo ${GATEINFO[@]})/g' $GATELOG"
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The gate was sucessfully upgraded to level $((${GATEINFO[5]}+1))\n'"
-					else
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You dont have enough voting points to upgrade the gate! You need $(echo ${GATETEIR[$((${GATEINFO[7]}+1))]} | cut -d" " -f1) but only have $VOTINGPOINTS \n'"
-					fi
-				else
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 This gate cannot be upgraded any more! It is already max level\n'"
-				fi
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You do not have permission to upgrade this gate\n'"
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That gate does not exist. please use !JUMPLIST to see all gates\n'"
-		fi
-	fi
-}
-function COMMAND_DESTROYJUMP(){ 
-#Deletes the specified jump gate if it belongs to you, and returns a certain % of the voting points spent back to you
-#USAGE: !DESTROYJUMP <Jump Name>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !DESTROYJUMP <JumpName>\n'"
-	else
-#		Checks if the gate exists
-		if grep -q -- $2 $GATELOG
-		then
-			GATEINFO=($(grep -- " $2 " $GATELOG))
-#			Checks if the player owns the gate
-			if [[ "${GATEINFO[7]}" == "$1" ]]
-			then
-				as_user "sed -i '/Name: ${GATEINFO[1]} .*/d' $GATELOG"
-				VOTINGPOINTS=$(grep "VotingPoints=" $PLAYERFILE/$1 | cut -d= -f2)
-				let "VOTESSAVED=$VOTINGPOINTS+$((${GATEINFO[9]}*$GATEREFUND/100))"
-				as_user "sed -i 's/VotingPoints=.*/VotingPoints=$VOTESSAVED/g' $PLAYERFILE/$1"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The gate $2 has been deleted! You got $((${GATEINFO[9]}*$GATEREFUND/100)) voting points back\n'"
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You dont have permission to delete that gate!\n'"
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That gate does not exist!\n'"
-		fi
-	fi
-}
-function COMMAND_ADMINADDJUMP(){
-#Creates a new jump gate at the specified coordinates, belonging to the specified player, with a specific teir and linked to a specific entity
-#USAGE: !ADMINADDJUMP <Jump Name> <Sector (X,Y,Z)> <Gate Level> <Owner (All for everyone to access)> <Linked Station (Optional)>
-	if [ "$#" -ne "5" ] && [ "$#" -ne "6" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !ADMINADDJUMP <Jump name> <Sector (X,Y,Z)> <Gate Level> <Owner (All for everyone to access)> <Linked Station (Optional)>\n'"
-	else
-		if [ ! -e $GATELOG ]
-		then
-			as_user "touch $GATELOG"
-		fi
-#		Search for a gate by that name already existing
-		if ! grep -q $2 $GATELOG
-		then
-			if [ $4 -le ${#GATETEIR[@]} ] && [ $4 -gt 0 ]
-			then
-				if [ ! -z $6 ]
-				then
-					ENTITYLINK="None"
-				else
-					ENTITYLINK=$6
-				fi
-				echo "Name: $2 Sector: $3 Level: $4 Creator: $5 TotalCost: 0 LinkedEntity: $ENTITYLINK" >> $GATELOG
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Gate created to $3 called $2\n'"
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That gate teir doesnt exist. Please try a different level\n'"
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 A gate by that name already exists\n'"
-		fi
-	fi
-}
-function COMMAND_ADMINDELETEJUMP(){
-#Deletes the specified jump gate from the universe
-#USAGE: !ADMINDELETEJUMP <JumpName>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !ADMINDELETEJUMP <JumpName>\n'"
-	else
-		if [ ! -e $GATELOG ]
-		then
-			as_user "touch $GATELOG"
-		fi
-#		Search for a gate by that name already existing
-		if grep -q $2 $GATELOG
-		then
-			as_user "sed -i '/Name: $2 .*/d' $GATELOG"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Gate destroyed\n'"
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That gate doesnt exist\n'"
-		fi
-	fi
-}
-
 #Bank Commands
 function COMMAND_DEPOSIT(){ 
 #Deposits money into your server account from your player
@@ -3852,62 +3494,7 @@ function COMMAND_RANKCOMMAND(){
 }
 
 #Functional Commands
-function COMMAND_PLAYERWHITELIST(){
-#Adds or removes players from your personal whitelist, allowing them to use your jumpgates
-#USAGE: !PLAYERWHITELIST <+/-> <Player/All>
-	if [ "$#" -ne "3" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !PLAYERWHITELIST <+/-> <PlayerName/All>\n'"
-	else
-		if [ ! -e $GATEWHITELIST/$1 ]
-		then
-			echo "AllPlayers" >> $GATEWHITELIST/${GATEINFO[7]}
-		fi
-		if [ $2 = "+" ]
-		then
-			if [ $3 = "All" ] || [ $3 = "all" ]
-			then
-				if grep -q "AllPlayers" $GATEWHITELIST/$1
-				then
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your gates are already public!\n'"
-				else
-					echo "AllPlayers" >> $GATEWHITELIST/$1
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your gates have been made public!\n'"
-				fi
-			else
-				if grep -q "$3" $GATEWHITELIST/$1
-				then
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $3 Is already on your whitelist\n'"
-				else
-					echo $3 >> $GATEWHITELIST/$1
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Added $3 to your whitelist. They can now use your jumpgates!\n'"
-				fi
-			fi
-		elif [ $2 = "-" ]
-		then
-			if [ $3 = "All" ] || [ $3 = "all" ]
-			then
-				if ! grep -q "AllPlayers" $GATEWHITELIST/$1
-				then
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your gates are already non-public!\n'"
-				else
-					as_user "sed -i '/AllPlayers/d' $GATEWHITELIST/$1"
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your gates have been made non-public!\n'"
-				fi
-			else
-				if ! grep -q "$3" $GATEWHITELIST/$1
-				then
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $3 isnt on your whitelist!\n'"
-				else
-					as_user "sed -i '/$3/d' $GATEWHITELIST/$1"
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Removed $3 from your whitelist!\n'"
-				fi
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid operator! Please only use + or -\n'"
-		fi
-	fi
-}
+
 function COMMAND_CONFIRM(){ 
 #Confirms any actions for the next 20 seconds (redundant at the moment)
 #USAGE: !CONFIRM
@@ -4799,7 +4386,6 @@ function COMMAND_ADMINCOOLDOWN(){
 	else
 		if ! grep -q $3 $PLAYERFILE/$2
 		then
-			as_user "sed -i 's/JumpDisabled=.*/JumpDisabled=0/g' $PLAYERFILE/$2"
 			as_user "sed -i 's/PlayerLastCore=.*/PlayerLastCore=0/g' $PLAYERFILE/$2"
 			as_user "sed -i 's/PlayerLastFold=.*/PlayerLastFold=0/g' $PLAYERFILE/$2"
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 All cooldowns set to 0 for $2\n'"
