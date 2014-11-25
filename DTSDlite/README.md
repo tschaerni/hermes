@@ -1,5 +1,5 @@
 DTSD
 ====
 
-A lite Version of the DTSD daemon. With fewer funktions for better maintance.
+A lite Version of the DTSD daemon. With fewer functions for better maintance.
 

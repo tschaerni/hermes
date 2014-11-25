@@ -29,6 +29,45 @@ fi
 
 #------------------------------Daemon functions-----------------------------------------
 
+depcheck() {
+# Dependency check for the whole daemon
+
+# initialize variable
+NOT_INSTALLED=""
+
+# check for all dep's
+if ! which zip > /dev/null ; then
+	NOT_INSTALLED="$NOT_INSTALLED zip"
+fi
+
+if ! which unzip > /dev/null ; then
+	NOT_INSTALLED="$NOT_INSTALLED unzip"
+fi
+
+if ! which screen > /dev/null ; then
+	NOT_INSTALLED="$NOT_INSTALLED screen"
+fi
+
+if ! which rlwrap > /dev/null ; then
+	NOT_INSTALLED="$NOT_INSTALLED rlwrap"
+fi
+
+if ! which java > /dev/null ; then
+	NOT_INSTALLED="$NOT_INSTALLED JRE (Java Runtime Environment)"
+fi
+
+if ! which jstack > /dev/null ; then
+	NOT_INSTALLED="$NOT_INSTALLED JDK (Java Development Kit)"
+fi
+
+# abort if some of the dep's aren't present
+if [ ! -z "$NOT_INSTALLED" ] ; then
+	echo "Terminate the daemon..."
+	echo "There are some dependencies that aren't present on this system. Please install$NOT_INSTALLED manually"
+	exit 1
+fi
+}
+
 sm_config() {
 # Check to see if the config file is in place, if it is then see if an update is needed.  If it does not exist create it and other needed files and directories.
 if [ -e $CONFIGPATH ]
@@ -127,7 +166,7 @@ else
     fi
 # Execute the server in a screen while using tee to move the Standard and Error Output to output.log
 	cd $STARTERPATH/StarMade
-	as_user "screen -dmS $SCREENID -m sh -c 'java -Xmx$MAXMEMORY -Xms$MINMEMORY -jar $SERVICE -server -port:$PORT 2>&1 | tee $OUTPUTFILE'"
+	as_user "screen -dmS $SCREENID -m sh -c 'rlwrap java -Xmx$MAXMEMORY -Xms$MINMEMORY -jar $SERVICE -server -port:$PORT 2>&1 | tee $OUTPUTFILE'"
 # Created a limited loop to see when the server starts
     for LOOPNO in {0..7}
 	do
@@ -143,7 +182,7 @@ else
     then
 		echo "$SERVICE is now running."
 		as_user "echo '' > $ONLINELOG"
-# Start sm_screemlog if logging is set to yes
+# Start sm_screenlog if logging is set to yes
 		if [ "$LOGGING" = "YES" ]
 		then
 			sm_screenlog
@@ -2024,7 +2063,8 @@ do
 			FEES=$(echo "(${#OWNEDSECTORS[@]}*$DAILYFEES)/24" | bc -l | cut -d"." -f1)
 			FACTIONCREDITS=$(($FACTIONCREDITS-$FEES))
 			if [ $FACTIONCREDITS -lt 0 ] && [ $(($FACTIONCREDITS+$FEES)) -gt 0 ] && [ $FEES -gt 0 ]
-			then 
+			then
+				sleep 0.1
 			elif [ $FACTIONCREDITS -lt $((-$FEES*48)) ] && [ $FEES -gt 0 ]
 			then
 				SECTOR=${OWNEDSECTORS[0]}
@@ -3629,6 +3669,8 @@ function COMMAND_THREADDUMP(){
 }
 
 #------------------------------Start of daemon script-----------------------------------------
+
+depcheck
 sm_config
 
 # End of regular Functions and the beginning of alias for commands, custom functions, and finally functions that use arguments. 
