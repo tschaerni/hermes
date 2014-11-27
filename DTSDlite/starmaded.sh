@@ -106,32 +106,34 @@ else
 fi
 }
 sm_checkdir() {
-if [ ! -d "$STARTERPATH/logs" ]
-then
-	echo "No logs directory detected creating for logging"
-	as_user "mkdir $STARTERPATH/logs"
-fi
-if [ ! -d "$PLAYERFILE" ]
-then
-	echo "No playerfile directory detected creating for logging"
-	as_user "mkdir $PLAYERFILE"
-fi
-if [ ! -d "$FACTIONFILE" ]
-then
-	echo "No factionfile directory detected creating for logging"
-	as_user "mkdir $FACTIONFILE"
-fi
-if [ ! -d "$STARTERPATH/oldlogs" ]
-then
-	echo "No oldlogs directory detected creating for logging"
-	as_user "mkdir $STARTERPATH/oldlogs"
-fi
-if [ -w /dev/shm/ ]
-then
-	OUTPUTFILE=/dev/shm/output.log
-else
-	OUTPUTFILE=$STARTERPATH/logs/output.log
-fi
+	if [ ! -d "$STARTERPATH/logs" ]
+	then
+		echo "No logs directory detected creating for logging"
+		as_user "mkdir $STARTERPATH/logs"
+	fi
+	if [ ! -d "$PLAYERFILE" ]
+	then
+		echo "No playerfile directory detected creating for logging"
+		as_user "mkdir $PLAYERFILE"
+	fi
+	if [ ! -d "$FACTIONFILE" ]
+	then
+		echo "No factionfile directory detected creating for logging"
+		as_user "mkdir $FACTIONFILE"
+	fi
+	if [ ! -d "$STARTERPATH/oldlogs" ]
+	then
+		echo "No oldlogs directory detected creating for logging"
+		as_user "mkdir $STARTERPATH/oldlogs"
+	fi
+	if [ -w /dev/shm/ ]
+	then
+		echo "Using Linux-buildin ramdisk for extensive I/O output.log"
+		OUTPUTFILE=/dev/shm/output.log
+	else
+		echo "Cannot detect /dev/shm/ using log directory"
+		OUTPUTFILE=$STARTERPATH/logs/output.log
+	fi
 }
 sm_start() { 
 # Wipe and dead screens to prevent a false positive for a running Screenid
@@ -143,7 +145,7 @@ then
 	exit
 fi
 # Check if server is running already by checking for Screenid in the screen list
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
 	echo "Tried to start but $SERVICE was already running!"
 else
@@ -153,7 +155,7 @@ else
 # Make sure screen log is shut down just in case it is still running    
     if ps aux | grep -v grep | grep $SCREENLOG >/dev/null
     then
-		echo "Screenlog detected terminating"
+		echo "Screenlog detected terminating..."
 #		PID=$(ps aux | grep -v grep | grep $SCREENLOG | awk '{print $2}')    
 #		kill $PID
 		as_user "screen -S $SCREENLOG -X quit"
@@ -170,7 +172,7 @@ else
 # Created a limited loop to see when the server starts
     for LOOPNO in {0..7}
 	do
-		if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 		then
 			break
 		else
@@ -178,7 +180,7 @@ else
 			sleep 1
 		fi
 	done
-    if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null 
+    if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
     then
 		echo "$SERVICE is now running."
 		as_user "echo '' > $ONLINELOG"
@@ -193,17 +195,17 @@ else
 fi
 }
 sm_stop() {
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
 	echo "$SERVICE is running... stopping."
 # Issue Chat and a command to the server to shutdown
-	as_user "screen -p 0 -S $SCREENID -X eval 'stuff \"/chat Server Going down be back in a bit.\"\015'"
+	as_user "screen -p 0 -S $SCREENID -X eval 'stuff \"/chat Server Going down, be back in a bit.\"\015'"
 	as_user "screen -p 0 -S $SCREENID -X eval 'stuff \"/shutdown 60\"\015'"
 # Give the server a chance to gracefully shutdown if not kill it and then seg fault it if necessary
 	sleep 60
-	for LOOPNO in {0..30}
+	for LOOPNO in {0..60}
 	do
-		if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 		then
 			sleep 1
 		else
@@ -212,14 +214,14 @@ then
 			break
 		fi
 	done
-	if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
     then
 		echo $SERVICE is taking too long to close and may be frozen. Forcing shut down
 		PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')
 		kill $PID
-		for LOOPNO in {0..30}
+		for LOOPNO in {0..60}
 		do
-			if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null 
+			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
 			then
 				sleep 1
 			else
@@ -228,7 +230,7 @@ then
 				break
 			fi
 		done
-		if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null 
+		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
 		then
 			PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')
 			kill -9 $PID
@@ -243,89 +245,78 @@ then
   fi
 }
 sm_backup() {
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
-then
-	echo "$SERVICE is running! Will not start backup."
-else
-	echo "Backing up starmade data" 
-# Check to see if zip is installed, it isn't on most minimal server builds. 
-if command -v zip >/dev/null
-then 
-	if [ -d "$BACKUP" ] 
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 	then
-		cd $STARTERPATH 
-		as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade"
-		as_user "mv $BACKUPNAME*.zip $BACKUP"
-		echo "Backup complete"
+		echo "$SERVICE is running! Will not start backup."
 	else
-		echo "Directory not found attempting to create"
-		cd $STARTERPATH
-		as_user "mkdir $BACKUP"
-# Create a zip of starmade with time stamp and put it in backup
-		as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade"
-		as_user "mv $BACKUPNAME*.zip $BACKUP"
-		echo "Backup complete" 
-	fi
-else
-	echo "Please install Zip"
-	fi 
-fi
-}
-sm_livebackup() {
-# WARNING! Live Backup make only a Backup of the Database! Because, some other dirs and files are in use
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
-then
-# Check to see if zip is installed, it isn't on most minimal server builds.
-	if command -v zip >/dev/null
-	then
-		if [ -d "$BACKUP" ]
+		echo "Backing up starmade data" 
+	
+		if [ -d "$BACKUP" ] 
 		then
-			cd $STARTERPATH
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat Starting live-backup\n'"
-			echo "Starting live-backup"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
-			sleep 10
-# /delay_save prevents saving of the Server
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 3600\n'"
-			sleep 5
-# Create a zip of starmade with time stamp and put it in backup
-			as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade/server-database"
-			if [ "$?" == "0" ]
-			then
-				as_user "mv $BACKUPNAME*.zip $BACKUP"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup complete and successfull\n'"
-				echo "live-backup complete and successfull"
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup exited with error. Please contact the admins.\n'"
-				echo "live-backup exited with error. Please check"
-			fi
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 1\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+			cd $STARTERPATH 
+			as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade"
+			as_user "mv $BACKUPNAME*.zip $BACKUP"
+			echo "Backup complete"
 		else
 			echo "Directory not found attempting to create"
 			cd $STARTERPATH
 			as_user "mkdir $BACKUP"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat Starting live-backup\n'"
-			echo "Starting live-backup"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
-			sleep 10
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 3600\n'"
-			sleep 5
-			as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade/server-database"
-			if [ "$?" == "0" ]
-			then
-				as_user "mv $BACKUPNAME*.zip $BACKUP"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup complete and successfull\n'"
-				echo "live-backup complete and successfull"
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup exited with error. Please contact the admins.\n'"
-				echo "live-backup exited with error. Please check"
-			fi
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 1\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+# Create a zip of starmade with time stamp and put it in backup
+			as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade"
+			as_user "mv $BACKUPNAME*.zip $BACKUP"
+			echo "Backup complete" 
 		fi
+	fi
+}
+sm_livebackup() {
+# WARNING! Live Backup make only a Backup of the Database! Because, some other dirs and files are in use
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+then
+	if [ -d "$BACKUP" ]
+	then
+		cd $STARTERPATH
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/chat Starting live-backup\n'"
+		echo "Starting live-backup"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+		sleep 10
+# /delay_save prevents saving of the Server
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 3600\n'"
+		sleep 5
+# Create a zip of starmade with time stamp and put it in backup
+		as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade/server-database"
+		if [ "$?" == "0" ]
+		then
+			as_user "mv $BACKUPNAME*.zip $BACKUP"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup complete and successfull\n'"
+			echo "live-backup complete and successfull"
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup exited with error. Please contact the admins.\n'"
+			echo "live-backup exited with error. Please check"
+		fi
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 1\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
 	else
-		echo "Please install Zip"
+		echo "Directory not found attempting to create"
+		cd $STARTERPATH
+		as_user "mkdir $BACKUP"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/chat Starting live-backup\n'"
+		echo "Starting live-backup"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+		sleep 10
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 3600\n'"
+		sleep 5
+		as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade/server-database"
+		if [ "$?" == "0" ]
+		then
+			as_user "mv $BACKUPNAME*.zip $BACKUP"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup complete and successfull\n'"
+			echo "live-backup complete and successfull"
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup exited with error. Please contact the admins.\n'"
+			echo "live-backup exited with error. Please check"
+		fi
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 1\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
 	fi
 else
 	echo "$SERVICE isn't running, make a regular backup"
@@ -333,7 +324,7 @@ else
 fi
 }
 sm_destroy() {
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
 	echo "$SERVICE is running! Will not start destroy."
 else
@@ -346,7 +337,7 @@ echo "Erase complete"
 fi
 }
 sm_install() {
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/nulll
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/nulll
 then
 	echo "$SERVICE is running! Will not start install"
 else
@@ -369,7 +360,7 @@ fi
 echo "Install Complete"
 }
 sm_upgrade() {
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
 	echo "$SERVICE is running! Will not start Install"
 else
@@ -468,15 +459,15 @@ else
 fi
 }
 sm_ebrake() {
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
-	PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')    
+	PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep -v rlwrap | grep port:$PORT | awk '{print $2}')    
 	jstack $PID >> $STARTERPATH/logs/threaddump.log
 	kill $PID
 # Give server a chance to gracefully shut down
 	for LOOPNO in {0..30}
 	do
-		if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 		then
 			sleep 1
 		else
@@ -486,11 +477,15 @@ then
 		fi
 	done
 # Check to make sure server is shut down if not kill it with a seg fault.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 	then
-		PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')
+		PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v rlwrap | grep -v tee | grep port:$PORT | awk '{print $2}')
 # This was added in to troubleshoot freezes at the request of Schema
-		jstack $PID >> $STARTERPATH/logs/threaddump.log  
+		jstack $PID >> $STARTERPATH/logs/threaddump1.log
+		sleep 10
+		jstack $PID >> $STARTERPATH/logs/threaddump2.log
+		sleep 10
+		jstack $PID >> $STARTERPATH/logs/threaddump3.log
 		kill -9 $PID
 		echo $SERVICE has to be forcibly closed. A thread dump has been taken and is saved at $STARTERPATH/logs/threaddump.log and should be sent to schema.
 		as_user "screen -S $SCREENLOG -X quit"
@@ -502,7 +497,7 @@ fi
 }
 sm_detect() {
 # Special thanks to Fire219 for providing the means to test this script.  Appreciation to Titansmasher for collaboration.
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
 # Add in a routine to check for STDERR: [SQL] Fetching connection 
 # Send the curent time as a serverwide message
@@ -534,7 +529,7 @@ fi
 }
 sm_screenlog () {
 # Start logging in a screen
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
 	echo "Starmade is running checking for logging."
 # Make sure smlog is not already running
@@ -556,7 +551,7 @@ fi
 }
 sm_status () {
 # Check to see is Starmade is running or not
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null 
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
 then
 	echo "Starmade Server is running."
 else
@@ -565,7 +560,7 @@ fi
 }
 sm_say() {
 # Check to see if server is running and if so pass the second argument as a chat command to server.  Use quotes if you use spaces.
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
 	SAYSTRING=$(echo $@ | cut -d" " -f2- | tr -d '<>()!@#$%^&*/[]{},\\' | sed "s/'//g" | sed "s/\"//g")
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/chat $SAYSTRING\n'"
@@ -574,7 +569,7 @@ else
 fi
 }
 sm_do() {
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 # Check for starmade running the passes second argument as a command on server.  Use quotations if you have spaces in command.
 then
 	DOSTRING=$(echo $@ | cut -d" " -f2- | tr -d '<>()!@#$%^&*/[]{},\\' | sed "s/'//g" | sed "s/\"//g")
@@ -583,17 +578,9 @@ else
 	echo "Starmade is not running!"
 fi
 }
-sm_setplayermax() {
-# Get the current max player setting and format it by removing spaces
-CURRENTMAXPLAYER=$(grep MAX_CLIENTS $STARTERPATH/StarMade/server.cfg | tail -1 | cut -d = -f2 | cut -d / -f1 | tr -d ' ') 
-echo "Current value is $CURRENTMAXPLAYER"
-# Replace the current value with the one choosen by user
-as_user "sed -i 's/MAX_CLIENTS = $CURRENTMAXPLAYER/MAX_CLIENTS = $2/g' $STARTERPATH/StarMade/server.cfg"
-echo "Max player value changed to $2"
-}
 sm_restore() {
 # Checks for server running and then restores the given backup zip file.  It pulls from the backup directory so no path is needed.
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
 	echo "Starmade Server is running."
 	else
@@ -602,57 +589,10 @@ then
 	echo "Server $2 is restored"
 fi
 }
-sm_ban() {
-# Check to see if server is running and if so pass the second argument as a chat command to server.  Use quotes if you use spaces.
-if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
-then
-# Set bannarray to zero
-	BANARRAY=0
-# Get the banhammer name from the chat command
-	BANHAMMERNAME=$2
-	echo "$BANHAMMERNAME is getting banned"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_name $BANHAMMERNAME\n'"
-# Added a kick as requested by BDLS
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $BANHAMMERNAME\n'"
-# Create the temporary file string
-	BANFILESTRING="$STARTERPATH/StarMade/server-database/ENTITY_PLAYERSTATE_player.ent"
-# Edit the file string with the playername to find the actual entity playerstate file
-	BANFILENAME=${BANFILESTRING/player/$BANHAMMERNAME}
-	echo "We are are looking for this player entity file $BANFILENAME"
-# Grab all the Ip's for the banned player as an array
-	BANHAMMERIP=( $(cat $BANFILENAME | strings | grep -v null | grep \/ | cut -d\/ -f2) )
-# Calculate the array total for debugging purposes
-	BANIPTOTAL=$(( ${#BANHAMMERIP[@]} ))
-	echo "$BANIPTOTAL total IP addresses to ban"
-# Check for the filename
-	if  [ -e $BANFILENAME ]
-	then
-# While there is still a value in the array
-		while [ -n "${BANHAMMERIP[$BANARRAY]+set}" ]
-		do
-# Set the current IP to be banned to Bannedip
-			BANNEDIP=${BANHAMMERIP[$BANARRAY]}
-			echo "Banning $BANNEDIP"
-# Ban that IP
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_ip $BANNEDIP\n'"
-# Keep from spamming commands to fast to server
-			sleep 1
-# Add 1 to the array
-			let BANARRAY++
-		done
-# If no file is found
-	else
-		echo "No player entity file found"
-	fi
-else 
-	echo "server not running"
-fi
-}
+
 sm_dump() {
 # Check to see if server is running and if so pass the second argument as a chat command to server.  Use quotes if you use spaces.
-if command -v jstack >/dev/null
-then
-	if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 	then
 		if [ "$#" -ne "2" ] 
 		then
@@ -671,9 +611,6 @@ then
 		else
 		echo "$SERVICE not running"
 	fi
-else
-echo "Please install Java JDK (ie: openjdk-7-jdk) to make dumps"
-fi
 }
 sm_help() {
 echo "updatefiles - Updates all stored files to the latest format, if a change is needed"
@@ -683,7 +620,7 @@ echo "ebrake - Stop the server without a server message approx 30 seconds"
 echo "destroy - Deletes Server no recovery"
 echo "install - Download a new starter and do a install"
 echo "reinstall - Destroys current server and installs new fresh one"
-echo "restore filename - Selected file unzips into the parent folder of starmade"  
+echo "restore <filename> - Selected file unzips into the parent folder of starmade"  
 echo "smdo command - Issues a server command.  Use quotes if there are spaces"
 echo "smsay words - Say something as the server.  Use quotes if there are spaces"
 echo "backup - backs up current Starmade directory as zip"
@@ -694,14 +631,12 @@ echo "cronrestore - Restores all cronjobs"
 echo "cronbackup - Backs up your cron file"
 echo "upgrade - Runs the starters upgrade routine"
 echo "upgradestar - Stops cron and server, runs upgrade, restarts cron and server"
-echo "restart - Stops and starts server"
-echo "smplayermaxset number - Change max players to this setting.  Helpful to set to 0 for maintenance" 
+echo "restart - Stops and starts server" 
 echo "detect - See if the server is frozen and restart if it is." 
 echo "log - Logs admin, chat, player, and kills."
 echo "screenlog - Starts the logging function in a screen"
 echo "precheck - Checks to see if there is a new pre version, stops server, backs up, and installs it"
 echo "check - Checks to see if there is a new version, stops server, backs up, and installs it"
-echo "ban username - Bans by username finding all IPs in entity player file and banning them"
 echo "dump - Do a thread dump with number of times and delay between them"
 echo "box - Send a colored message box.  Usage: box <red|blue|green> <playername (optional)> <message>"
 }
@@ -719,7 +654,7 @@ create_rankscommands
 # Create the playerfile folder if it doesnt exist
 	mkdir -p $PLAYERFILE
 # This while loop runs as long as starmade stays running    
-	while (ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null)
+	while (ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep -v rlwrap | grep port:$PORT >/dev/null)
 	do
 # A tiny sleep to prevent cpu burning overhead
 		sleep 0.1
@@ -2437,213 +2372,6 @@ as_user "sed -i 's/HASH=.*/HASH=$CURRENTHASH/g' $CONFIGPATH"
 #	fi
 #}
 
-
-#Sector Ownership Commands
-function COMMAND_BUYSECTOR(){
-#Purchases a sector for a set price, determined by how many sectors adjacent to it you own. The more sectors = cheaper
-#USAGE: !BUYSECTOR
-if [ "$#" -ne 1 ]
-then
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BUYSECTOR\n'"
-else
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Connecting to servers\n'"
-	log_playerinfo $1
-	FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
-	if [ ! $FACTION = "None" ]
-	then
-		create_factionfile $FACTION
-		FACTIONCREDITS=$(grep "CreditsInBank" $FACTIONFILE/$FACTION | cut -d= -f2)
-		FACTIONSECTORS=$(grep "OwnedSectors" $FACTIONFILE/$FACTION | cut -d= -f2-)
-		PLAYERSECTOR=$(grep "PlayerLocation" $PLAYERFILE/$1 | cut -d= -f2)
-		if [ ! -f $SECTORFILE ]
-		then
-			as_user "touch $SECTORFILE"
-		fi
-		if ! grep " $PLAYERSECTOR " $SECTORFILE
-		then
-			XCOORD=$(echo $PLAYERSECTOR | cut -d"," -f1)
-			YCOORD=$(echo $PLAYERSECTOR | cut -d"," -f2)
-			ZCOORD=$(echo $PLAYERSECTOR | cut -d"," -f3)
-			NEIGHBOURSECTORS=0
-			for XRANGE in $(($XCOORD -1)) $(($XCOORD +1))
-			do
-				if $(echo "$FACTIONSECTORS" | grep -q -- "$XRANGE,$YCOORD,$ZCOORD")
-				then
-					let NEIGHBOURSECTORS++
-				fi
-			done
-			for YRANGE in $(($YCOORD -1)) $(($YCOORD +1))
-			do
-				if $(echo "$FACTIONSECTORS" | grep -q -- "$XCOORD,$YRANGE,$ZCOORD")
-				then
-					let NEIGHBOURSECTORS++
-				fi
-			done
-			for ZRANGE in $(($ZCOORD -1)) $(($ZCOORD +1))
-			do
-				if $(echo "$FACTIONSECTORS" | grep -q -- "$XCOORD,$YCOORD,$ZRANGE")
-				then
-					let NEIGHBOURSECTORS++
-				fi
-			done
-			THISSECTORCOST=$(echo "$SECTORCOST/(sqrt($NEIGHBOURSECTORS/6)+1)" | bc -l | cut -d"." -f1)
-			if [ $FACTIONCREDITS -ge $THISSECTORCOST ]
-			then
-				FACTIONCREDITS=$(($FACTIONCREDITS - $THISSECTORCOST))
-				BEACONID="Sector_Claim_Unit_F:${FACTION}_ID:$(date +%s)$RANDOM"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Due to the $NEIGHBOURSECTORS adjacent sectors you own, this sector costs $THISSECTORCOST credits\n'"
-				as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
-				as_user "sed -i 's/OwnedSectors=.*/OwnedSectors=$FACTIONSECTORS $PLAYERSECTOR/g' $FACTIONFILE/$FACTION"
-				echo " $PLAYERSECTOR $FACTION $NEIGHBOURSECTORS 0 $BEACONID $THISSECTORCOST" >> $SECTORFILE
-				echo "[$PLAYERSECTOR]" >> $PROTECTEDSECTORS
-				sleep 0.2
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - A sectoral claim unit has been deployed to your sector. If this is estroyed, then the sector claim is lost!\n'"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity $BEACONNAME $BEACONID $(echo $PLAYERSECTOR | tr "," " ") 0 False \n'"
-				sectoradjacent $FACTION 
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Your faction cannot afford this sector. it would cost $THISSECTORCOST\n'"
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - This sector is already owned!\n'"
-		fi
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a registered faction.\n'"
-	fi
-fi
-}
-function COMMAND_SECTORLIST(){
-#Lists all sectors that belong to your faction
-#USAGE: !SECTORLIST
-if [ "$#" -ne 1 ]
-then
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !SECTORLIST\n'"
-else
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
-	log_playerinfo $1
-	FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
-	if [ ! $FACTION = "None" ]
-	then
-		while read SECTOR
-		do
-			SECTORDATA=($SECTOR)
-			if [ ${SECTORDATA[1]} = $FACTION ]
-			then
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 [Sector: ${SECTORDATA[0]} Credits: ${SECTORDATA[3]}]\n'"
-			fi
-		done < $SECTORFILE
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Your faction owns sectors:\n'"
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a faction!\n'"
-	fi
-fi
-}
-function COMMAND_BEACONWITHDRAW(){
-#Takes money out of a beacon that you own. Only works if you are within a sector that contains a beacon
-#USAGE: !BEACONWITHDRAW <Amount>
-if [ "$#" -ne 2 ]
-then
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BEACONWITHDRAW <Amount/All>\n'"
-else
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
-	log_playerinfo $1
-	FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
-	if [ ! $FACTION = "None" ]
-	then
-		SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-		if grep -q -- " $SECTOR " $SECTORFILE
-		then
-			SECTORDATA=($(grep -- " $SECTOR " $SECTORFILE))
-			if [ $FACTION -eq ${SECTORDATA[1]} ]
-			then
-				if [ $(echo $2 | tr [a-z] [A-Z]) = "ALL" ]
-				then
-					FACTIONCREDITS=$(($(grep "CreditsInBank" $FACTIONFILE/$FACTION | cut -d= -f2) + ${SECTORDATA[3]}))
-					SECTORDATA[3]=0
-				else
-					SECTORDATA[3]=$((${SECTORDATA[3]} - $2))
-					FACTIONCREDITS=$(($(grep "CreditsInBank=" $FACTIONFILE/$FACTION | cut -d= -f2) + $2))
-				fi
-				as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
-				as_user "sed -i 's/ ${SECTORDATA[0]} .*/ $(echo ${SECTORDATA[@]})/g' $SECTORFILE"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You have taken $2 credits from beacon $(echo ${SECTORDATA[4]} | cut -d"_" -f5) in sector ${SECTORDATA[1]}\n'"
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - This sector does not belong to your faction\n'"
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - No records of a sector claim here exist!\n'"
-		fi
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a faction!\n'"
-	fi
-fi
-}
-function COMMAND_BEACONBALANCE(){
-#Takes money out of a beacon that you own. Only works if you are within a sector that contains a beacon
-#USAGE: !BEACONBALANCE
-if [ "$#" -ne 1 ]
-then
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BEACONBALANCE\n'"
-else
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
-	log_playerinfo $1
-	FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
-	if [ ! $FACTION = "None" ]
-	then
-		SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-		if grep -q -- " $SECTOR " $SECTORFILE
-		then
-			SECTORDATA=($(grep -- " $SECTOR " $SECTORFILE))
-			if [ $FACTION -eq ${SECTORDATA[1]} ]
-			then
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Beacon $(echo ${SECTORDATA[4]} | cut -d"_" -f5) in sector ${SECTORDATA[1]} contains ${SECTORDATA[3]} credits \n'"
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - This sector does not belong to your faction\n'"
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - No records of a sector claim here exist!\n'"
-		fi
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a faction!\n'"
-	fi
-fi
-}
-function COMMAND_BEACONSELL(){
-#Takes money out of a beacon that you own. Only works if you are within a sector that contains a beacon
-#USAGE: !BEACONSELL
-if [ "$#" -ne 1 ]
-then
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BEACONSELL\n'"
-else
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
-	log_playerinfo $1
-	FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
-	if [ ! $FACTION = "None" ]
-	then
-		SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-		if grep -q -- " $SECTOR " $SECTORFILE
-		then
-			SECTORDATA=($(grep -- " $SECTOR " $SECTORFILE))
-			if [ $FACTION -eq ${SECTORDATA[1]} ]
-			then
-				FACTIONCREDITS=$(($(grep "CreditsInBank" $FACTIONFILE/$FACTION | cut -d= -f2) + ${SECTORDATA[3]} + (${SECTORDATA[5]} * $SECTORREFUND / 100)))
-				as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
-				as_user "sed -i '/ ${SECTORDATA[0]} .*/d' $SECTORFILE"
-				as_user "sed -i 's/ ${SECTORDATA[0]}//g' $FACTIONFILE/$FACTION"
-				as_user "sed -i '/^.*${SECTOR}.*/d' $PROTECTEDSECTORS"
-				sectoradjacent $FACTION
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You have sucessfully sold the sector for $((${SECTORDATA[3]} + (${SECTORDATA[5]} * $SECTORREFUND / 100))) credits.\n'"
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - This sector does not belong to your faction\n'"
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - No records of a sector claim here exist!\n'"
-		fi
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a faction!\n'"
-	fi
-fi
-}
-
 #Bounty Commands
 function COMMAND_POSTBOUNTY(){ 
 #Places a bounty on the player specified, by taking the specified amount of credits from your account.
@@ -3090,23 +2818,6 @@ function COMMAND_RANKCOMMAND(){
 
 #Functional Commands
 
-function COMMAND_CONFIRM(){ 
-#Confirms any actions for the next 20 seconds (redundant at the moment)
-#USAGE: !CONFIRM
-#	A generic command confirmation command. Simply changes the CommandConfirm feild in the player log to 1 for 20 seconds
-#	If you want to have a user to confirm an action, simply ask them to type !CONFIRM and give them a max of 10 seconds to use the command
-#	before looking at the CommandConfirm field in their player log
-	if [ "$#" -ne "1" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !CONFIRM\n'"
-	else
-		as_user "sed -i 's/CommandConfirm=.*/CommandConfirm=1/g' $PLAYERFILE/$1"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Commands confirmed for the next 20 seconds!\n'"
-		sleep 20
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Commands are no longer confirmed!\n'"
-		as_user "sed -i 's/CommandConfirm=1/CommandConfirm=0/g' $PLAYERFILE/$1"
-	fi
-}
 function COMMAND_VOTEBALANCE(){ 
 #Tells you how many voting points you have saved up
 #USAGE: !VOTEBALANCE
@@ -3201,198 +2912,7 @@ function COMMAND_LOAD(){
 }
 
 #Vanilla Admin Commands
-function COMMAND_BANHAMMER(){
-#Bans the specified player from the server by IP, Name and Account
-#USAGE: !BANHAMMER <Player>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BANHAMMER <Name>\n'"
-	else
-# BANHAMMER command bans all IPs attached to player name.	Player does not have to be logged on
-# Set bannarray to zero
-		BANARRAY=0
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_name $2\n'"
-# Create the temporary file string
-		BANfiLESTRING="$STARTERPATH/StarMade/server-database/ENTITY_PLAYERSTATE_player.ent"
-# Edit the file string with the playername to find the actual entity playerstate file
-		BANfiLENAME=${BANfiLESTRING/player/$2}
-#		echo "We are are looking for this player entity file $BANfiLENAME"
-# Grab all the Ip's for the banned player as an array
-		BANHAMMERIP=( $(cat $BANfiLENAME | strings | grep -v null | grep \/ | cut -d\/ -f2) )
-# Calculate the array total for debugging purposes
-		BANIPTOTAL=$(( ${#BANHAMMERIP[@]} ))
-#		echo "$BANIPTOTAL total IP addresses to ban"
-# Check for the filename
-		if	[ -e $BANfiLENAME ]
-		then
-# While there is still a value in the array
-			while [ -n "${BANHAMMERIP[$BANARRAY]+set}" ]
-			do
-# Set the current IP to be banned to Bannedip
-				BANNEDIP=${BANHAMMERIP[$BANARRAY]}
-#				echo "Banning $BANNEDIP"
-# Ban that IP
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_ip $BANNEDIP\n'"
-# To prevent spamming all the commands at once
-				sleep 2
-# Add 1 to the array
-				let BANARRAY++
-			done
-# if no file is found
-		else
-#		echo "No player entity file found"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 BANHAMMER fail no file for $2 found\n'"
-		fi
-	fi
-}
-function COMMAND_SEARCH(){
-#Searches the universe for the last known coordinates of your ship
-#USAGE: !SEARCH
-	if [ "$#" -ne "1" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !SEARCH\n'"
-	else
-# This commands needs to be disabled if logging is not active
-# Set searcharray to zero
-		SEARCHARRAY=0
-# Get the Shipnames with current player from shiplog
-		OLD_ifS=$ifS
-		ifS=$'\n'
-		SEARCHSHIPNAMES=( $(grep $1 $SHIPLOG) )
-		ifS=$OLD_ifS
-# Calculate the array total for debugging purposes
-#		SEARCHSHIPTOTAL=$(( ${#SEARCHSHIPNAMES[@]} ))
-#		echo "$SEARCHSHIPTOTAL total ships found"
-# While the array is set 
-		while [ -n "${SEARCHSHIPNAMES[$SEARCHARRAY]+set}" ]
-		do
-# Set the current grep string to SEARCHSHIP to be displayed
-			SEARCHSHIP=${SEARCHSHIPNAMES[$SEARCHARRAY]}
-#			echo "Ship $SEARCHSHIP"
-# Display that ship
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $SEARCHSHIP\n'"
-# To prevent spamming all the commands at once
-# Add 1 to the array
-			let SEARCHARRAY++
-		done
-	fi
-}
-function COMMAND_KILL(){
-#Kills a player instantly
-#USAGE: !KILL <Player>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !KILL <Name>\n'"
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/kill_character $2\n'" 
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $2 was killed\n'"
-	fi
-}
-function COMMAND_WHITEADD(){
-#Adds a player to the whitelist
-#USAGE: !WHITEADD <Player>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !WHITEADD <Name>\n'"
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/whitelist_name $2\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The name $2 has been whitelisted\n'"
-	fi
-}
-function COMMAND_BANPLAYER(){
-#Bans a player from the server
-#USAGE: !BANPLAYER <Player>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BANPLAYER <Name>\n'"
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_name $2\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The name $2 is now banned from the server\n'"
-	fi
-}
-function COMMAND_UNBAN(){
-#Removes a player from the ban list
-#USAGE: !UNBAN <Player>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !UNBAN <Name>\n'"
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/unban_name $2\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The name $2 is no longer banned\n'"
-	fi
-}
-function COMMAND_SHUTDOWN(){
-#Shuts the server down
-#USAGE: !SHUTDOWN <Time Delay>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !SHUTDOWN <Time>\n'"
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/shutdown $2\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The server will shut down in $2 seconds\n'"
-	fi
-}
-function COMMAND_RESTART(){
-#Shuts the server down and then starts it back up again
-#USAGE: !RESTART
-	if [ "$#" -ne "1" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !RESTART\n'"
-	else
-		as_user "$DAEMONPATH restart"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The server will now restart\n'"
-	fi
-}
-function COMMAND_CREDITS(){
-#Gives you, or another player the specified number of credits
-#USAGE: !CREDITS <Player (optional)> <Amount>
-	if [ "$#" -ne "2" ] && [ "$#" -ne "3" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !CREDITS <Playername (optional)> <Amount>\n'"
-	else
-		if [ "$2" -eq "$2" ] 2>/dev/null
-		then
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/give_credits $1 $2\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You received $2 credits\n'"
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/give_credits $2 $3\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $2 received $3 credits\n'"
-		fi
-	fi
-}
-function COMMAND_IMPORT(){
-#Imports an exported sector file to the sector specified (sector must be unloaded)
-#USAGE: !IMPORT <X> <Y> <Z> <Export name>
-	if [ "$#" -ne "5" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !IMPORT <X> <Y> <Z> <Export name>\n'"
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/import_sector $2 $3 $4 $5\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Attempted to spawn the sector file $5 to sector $2,$3,$4. If there were players nearby the spawn will have failed\n'"
-	fi
-}
-function COMMAND_EXPORT(){
-#Saves the specified sector to a file with a specified name
-#USAGE: !EXPORT <X> <Y> <Z> <Export name>
-	if [ "$#" -ne "5" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !EXPORT <X> <Y> <Z> <Export name>\n'"
-	else	
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/export_sector $2 $3 $4 $5\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The secotr $2,$3,$4 has been exported to a file called $5\n'"
-	fi
-}
-function COMMAND_DESPAWN(){
-#Destroys all ships with a specified name from the specified sector
-#USAGE: !DESPAWN <X> <Y> <Z> <Ship name>
-	if [ "$#" -ne "5" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !DESPAWN <X> <Y> <Z> <Ship name>\n'"
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_sector $5 all true $2 $3 $4\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 All entities called $5 have been removed from sector $2,$3,$4\n'"
-	fi
-}
+
 function COMMAND_LOADSHIP(){
 #Spawns in the specified ship from the catalogue to the specified coords
 #USAGE: !LOADSHIP <Blueprint Name> <Entity Name> <X> <Y> <Z>
@@ -3404,24 +2924,6 @@ function COMMAND_LOADSHIP(){
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The blueprint $2 has been spawned in sector $4,$5,$6 and is called $3\n'"
 	fi
 }
-function COMMAND_GIVE(){
-#Gives you, or another player the specified item ID with a specified quantity
-#USAGE: !GIVE <Player (optional)> <ID> <Amount>
-	if [ "$#" -ne "3" ] && [ "$#" -ne "4" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !GIVE <Playername (optional)> <ID> <Amount>\n'"
-	else
-		if [ "$2" -eq "$2" ] 2>/dev/null
-		then
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 $2 $3\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You received $3 of item ID $2\n'"
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $2 $3 $4\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $2 received $4 of $3\n'"
-		fi
-	fi
-}
-
 function COMMAND_GIVEMETA(){ 
 #Gives you, or another player the specified meta item
 #USAGE: !GIVEMETA <Player (optional)> <METAUTEN>
@@ -3448,146 +2950,6 @@ function COMMAND_CLEAR(){
 	else	
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/give_all_items $1 -99999\n'"
 as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your inventory has been cleaned\n'"		
-	fi
-}
-function COMMAND_KICK(){
-#Kicks the specified player from the server
-#USAGE: !KICK <Player>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !KICK <Player>\n'"
-	else	
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $2\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $2 has been kicked from the server\n'"
-	fi
-}
-function COMMAND_GODON(){
-#Turns on godmode, making your character immune to all forms of damage
-#USAGE: !GODON
-	if [ "$#" -ne "1" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !GODON\n'"
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/god_mode $1 true\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You are now in god mode\n'"
-	fi
-}
-function COMMAND_GODOFF(){
-#Turns off godmode, making your character killable again
-#USAGE: !GODOFF
-	if [ "$#" -ne "1" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !GODOFF\n'"
-	else
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/god_mode $1 false\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You are no longer in god mode\n'"
-	fi
-}
-function COMMAND_LISTWHITE(){ 
-#Tells you all the names, IPs and accounts that are whitelisted on the server
-#USAGE: !LISTWHITE <name/account/ip/all>
-	if [ "$#" -ne "2" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !LISTWHITE <name/account/ip/all>\n'"
-	else
-		WHITELIST=( $( cat $STARTERPATH/StarMade/whitelist.txt ) )
-		WHITENAME=()
-		WHITEIP=()
-		WHITEACCOUNT=()
-		for ENTRY in ${WHITELIST[@]}
-		do
-			case $(echo $ENTRY | cut -d":" -f1) in
-			nm)
-				WHITENAME+=( $(echo $ENTRY | cut -d":" -f2) )
-				;;
-			ip)
-				WHITEIP+=( $(echo $ENTRY | cut -d":" -f2) )
-				;;
-			ac)
-				WHITEACCOUNT+=( $(echo $ENTRY | cut -d":" -f2) )
-				;;
-			esac
-		done
-		if [[ $(echo $2 | tr [a-z] [A-Z]) ==  "NAME" ]]
-		then
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 ${WHITENAME[@]}\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Whitelisted name\'s are:\n'"
-		elif [[ $(echo $2 | tr [a-z] [A-Z]) ==  "IP" ]]
-		then
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 ${WHITEIP[@]}\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Whitelisted ip\'s are:\n'"
-		elif [[ $(echo $2 | tr [a-z] [A-Z]) ==  "ACCOUNT" ]]
-		then
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 ${WHITEACCOUNT[@]}\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Whitelisted account\'s are:\n'"
-		elif [[ $(echo $2 | tr [a-z] [A-Z]) ==  "ALL" ]]
-		then
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 ${WHITELIST[*]}\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 All whitelisted names, accounts and ip\'s:\n'"
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !LISTWHITE <name/account/ip/all>\n'"
-		fi			
-	fi
-}
-function COMMAND_INVISION(){
-#Makes your character invisible to everyone else
-#USAGE: !INVISIOn	
-	if [ "$#" -ne "1" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !INVISION\n'"
-	else	
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/invisibility_mode $1 true\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You are now invisible\n'"
-	fi
-}
-function COMMAND_INVISIOFF(){
-#Makes your character visible to everyone else again
-#USAGE: !INVISIOFF
-	if [ "$#" -ne "1" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !INVISIOFF\n'"
-	else	
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/invisibility_mode $1 false\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You are no longer invisible\n'"
-	fi
-}
-function COMMAND_TELEPORT(){
-#Teleports you and the entity you are controlling, or another player and the entity they are controling to the specified sector
-#USAGE: !TELEPORT <Player (optional)> <X> <Y> <Z>
-	if [ "$#" -ne "4" ] && [ "$#" -ne "5" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !TELEPORT <Player (optional)> <X> <Y> <Z>\n'"
-	else	
-		if [ "$2" -eq "$2" ] 2>/dev/null
-		then
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/change_sector_for $1 $2 $3 $4\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have been teleported to $2,$3,$4\n'"
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/change_sector_for $2 $3 $4 $5\n'"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $2 has been teleported to $2,$3,$4\n'"
-		fi
-	fi
-}
-function COMMAND_PROTECT(){
-#Prevents damage to entities inside the specified sector
-#USAGE: !PROTECT <X> <Y> <Z>	
-	if [ "$#" -ne "4" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !PROTECT <X> <Y> <Z>\n'"
-	else		
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/sector_chmod $2 $3 $4 + protected\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Sector $2,$3,$4 is now protected\n'"
-	fi
-}
-function COMMAND_UNPROTECT(){
-#Allows damage to entities inside the specified sector
-#USAGE: !UNPROTECT <X> <Y> <Z>
-	if [ "$#" -ne "4" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !UNPROTECT <X> <Y> <Z>\n'"
-	else		
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/sector_chmod $2 $3 $4 - protected\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Sector $2,$3,$4 is no longer protected\n'"
 	fi
 }
 function COMMAND_SPAWNSTOP(){
@@ -3626,48 +2988,6 @@ function COMMAND_MYDETAILS(){
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $ENTRY\n'"
 		done		
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 All details inside your playerfile:\n'"
-	fi
-}
-function COMMAND_ADMINCOOLDOWN(){
-#Sets the specified players cooldown timers to 0
-#USAGE: !ADMINCOOLDOWN <Player>
-	if [ "$#" -ne "2" ]
-	then	
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !ADMINCOOLDOWN <Playername>\n'"
-	else
-		if ! grep -q $3 $PLAYERFILE/$2
-		then
-			as_user "sed -i 's/PlayerLastCore=.*/PlayerLastCore=0/g' $PLAYERFILE/$2"
-			as_user "sed -i 's/PlayerLastFold=.*/PlayerLastFold=0/g' $PLAYERFILE/$2"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 All cooldowns set to 0 for $2\n'"
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That player does not exist. Please try again\n'"
-		fi
-	fi
-}
-function COMMAND_ADMINREADFILE(){
-#Reads the specified file to the player
-#USAGE: !ADMINREADFILE <Path/To/File.txt>
-	if [ "$#" -ne "2" ]
-	then	
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !ADMINREADFILE <File Path>\n'"
-	else
-		if [ -e $STARTERPATH/$2 ]
-		then
-			if [ $2 = "/logs/output.log" ]
-			then
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Direct access to the log output file is blocked\n'"
-			else
-				OLD_IFS=$IFS
-				IFS=$'\n'
-				for LINE in $(tac $STARTERPATH/$2)
-				do
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $LINE \n'"
-				done
-			fi
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That file does not exist. Please try again\n'"
-		fi
 	fi
 }
 function COMMAND_THREADDUMP(){
