@@ -36,29 +36,12 @@ depcheck() {
 NOT_INSTALLED=""
 
 # check for all dep's
-if ! which zip > /dev/null ; then
-	NOT_INSTALLED="$NOT_INSTALLED zip"
-fi
-
-if ! which unzip > /dev/null ; then
-	NOT_INSTALLED="$NOT_INSTALLED unzip"
-fi
-
-if ! which screen > /dev/null ; then
-	NOT_INSTALLED="$NOT_INSTALLED screen"
-fi
-
-if ! which rlwrap > /dev/null ; then
-	NOT_INSTALLED="$NOT_INSTALLED rlwrap"
-fi
-
-if ! which java > /dev/null ; then
-	NOT_INSTALLED="$NOT_INSTALLED JRE (Java Runtime Environment)"
-fi
-
-if ! which jstack > /dev/null ; then
-	NOT_INSTALLED="$NOT_INSTALLED JDK (Java Development Kit)"
-fi
+# special thanks to hrnz for this hint
+for i in zip unzip screen rlwrap java jstack ; do
+	if ! which $i > /dev/null; then
+		NOT_INSTALLED="$NOT_INSTALLED $i"
+	fi
+done
 
 # abort if some of the dep's aren't present
 if [ ! -z "$NOT_INSTALLED" ] ; then
