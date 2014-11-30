@@ -1,7 +1,8 @@
 #!/bin/bash
 # Doomsider's and Titanmasher's Daemon Script for Starmade.  init.d script 7/10/13 based off of http://paste.boredomsoft.org/main.php/view/62107887
 # All credits to Andrew for his initial work
-# Version .17.1 28/8/2014
+# Scrubbed down version "DTSDlite"
+# Version 0.9.0-alpha 30.11.2014
 # Jstack for a dump has been added into the ebrake command to be used with the detect command to see if server is responsive.
 # These dumps will be in starterpath/logs/threaddump.log and can be submitted to Schema to troubleshoot server crashes
 # !!!You must update starmade.cfg for the Daemon to work on your setup!!!
@@ -21,9 +22,9 @@ CURRENTHASH=$(md5sum $DAEMONPATH |  cut -d" " -f1 | tr -d ' ')
 # Since this is a Daemon it can be called on from anywhere from just about anything.  This function below ensures the Daemon is using the proper user for the correct privileges
 as_user() {
 if [ "$ME" == "$USERNAME" ] ; then
-bash -c "$1"
+	bash -c "$1"
 else
-su - $USERNAME -c "$1"
+	su - $USERNAME -c "$1"
 fi
 }
 
@@ -83,7 +84,6 @@ else
 	source $CONFIGPATH
 	sm_checkdir
 	create_tipfile
-	create_barredwords
 	create_rankscommands
 	exit
 fi
@@ -631,8 +631,6 @@ SM_LOG_PID=$$
 echo "Logging started at $(date '+%b_%d_%Y_%H.%M.%S')"
 autovoteretrieval &
 randomhelptips &
-sectorincome &
-sectorfees &
 create_rankscommands
 # Create the playerfile folder if it doesnt exist
 	mkdir -p $PLAYERFILE
@@ -671,13 +669,7 @@ create_rankscommands
 		SEARCHREMOVE="[SERVER][DISCONNECT] Client 'RegisteredClient:"
 		SEARCHCHAT="[CHAT]"
 		SEARCHCHANGE="has players attached. Doing Sector Change for PlS"
-		SEARCHBUY="[BLUEPRINT][BUY]"
-		SEARCHBOARD="[CONTROLLER][ADD-UNIT]"
-		SEARCHDOCK="NOW REQUESTING DOCK FROM"
-		SEARCHUNDOCK="NOW UNDOCKING:"
 		SEARCHADMIN="[ADMIN COMMAND]"
-		SEARCHKILL="Announcing kill:"
-		SEARCHDESTROY="PERMANENTLY DELETING ENTITY:"
 		SEARCHINIT="SPAWNING NEW CHARACTER FOR PlS"
 # Linenumber is set to zero and the a while loop runs through every present array in Linestring	
 		LINENUMBER=0
@@ -708,16 +700,6 @@ create_rankscommands
 #				echo "Change detected"
 #				echo $CURRENTSTRING
 				log_sectorchange $CURRENTSTRING &
-				;;
-			*"$SEARCHBUY"*) 
-#				echo "Buy detected"
-#				echo $CURRENTSTRING
-				log_shipbuy $CURRENTSTRING &
-				;;
-			*"$SEARCHBOARD"*) 
-#				echo "Board detected"
-#				echo $CURRENTSTRING
-				log_boarding $CURRENTSTRING &
 				;;
 			*"$SEARCHDOCK"*) 
 #				echo "Docking detected"
@@ -760,13 +742,7 @@ parselog(){
 		SEARCHREMOVE="[SERVER][DISCONNECT] Client 'RegisteredClient:"
 		SEARCHCHAT="[CHAT]"
 		SEARCHCHANGE="has players attached. Doing Sector Change for PlS"
-		SEARCHBUY="[BLUEPRINT][BUY]"
-		SEARCHBOARD="[CONTROLLER][ADD-UNIT]"
-		SEARCHDOCK="NOW REQUESTING DOCK FROM"
-		SEARCHUNDOCK="NOW UNDOCKING:"
 		SEARCHADMIN="[ADMIN COMMAND]"
-		SEARCHKILL="Announcing kill:"
-		SEARCHDESTROY="PERMANENTLY DELETING ENTITY:"
 		SEARCHINIT="SPAWNING NEW CHARACTER FOR PlS"
 		case "$@" in
 			*"$SEARCHLOGIN"*) 
@@ -789,16 +765,6 @@ parselog(){
 #				echo "Change detected"
 #				echo $@
 				log_sectorchange $@ &
-				;;
-			*"$SEARCHBUY"*) 
-#				echo "Buy detected"
-#				echo $@
-				log_shipbuy $@ &
-				;;
-			*"$SEARCHBOARD"*) 
-#				echo "Board detected"
-#				echo $@
-				log_boarding $@ &
 				;;
 			*"$SEARCHDOCK"*) 
 #				echo "Docking detected"
@@ -904,28 +870,12 @@ then
 #echo "Faction id is $PFACTION"
 	PSECTOR=$(echo ${PLAYERINFO[6]} | cut -d\( -f2 | cut -d\) -f1 | tr -d ' ')
 #echo "Player sector is $PSECTOR"
-	if echo ${PLAYERINFO[7]} | grep SHIP >/dev/null
-	then
-		PCONTROLOBJECT=$(echo ${PLAYERINFO[7]} | cut -d: -f2 | cut -d" " -f2 | cut -d\[ -f1)
-#		echo "Player controlled object is $PCONTROLOBJECT"
-		PCONTROLTYPE=$(echo ${PLAYERINFO[7]} | cut -d: -f2- | cut -d[ -f2 | cut -d] -f1)
-#		echo "Player controlled entity type $PCONTROLTYPE"
-	fi
-	if echo ${PLAYERINFO[7]} | grep PLAYERCHARACTER >/dev/null
-	then
-		PCONTROLOBJECT=$(echo ${PLAYERINFO[7]} | cut -d: -f2 | cut -d" " -f2 | cut -d[ -f1)
-#		echo "Player controlled object is $PCONTROLOBJECT"
-		PCONTROLTYPE=Spacesuit
-#		echo "Player controlled entity type $PCONTROLTYPE"
-	fi
 	PLASTUPDATE=$(date +%s)
 #echo "Player file last update is $PLASTUPDATE"
 	as_user "sed -i 's/CurrentIP=.*/CurrentIP=$PIP/g' $PLAYERFILE/$1"
 	as_user "sed -i 's/CurrentCredits=.*/CurrentCredits=$PCREDITS/g' $PLAYERFILE/$1"
 	as_user "sed -i 's/PlayerFaction=.*/PlayerFaction=$PFACTION/g' $PLAYERFILE/$1"
 	as_user "sed -i 's/PlayerLocation=.*/PlayerLocation=$PSECTOR/g' $PLAYERFILE/$1"
-	as_user "sed -i 's/PlayerControllingType=.*/PlayerControllingType=$PCONTROLTYPE/g' $PLAYERFILE/$1"
-	as_user "sed -i 's/PlayerControllingObject=.*/PlayerControllingObject=$PCONTROLOBJECT/g' $PLAYERFILE/$1"
 	as_user "sed -i 's/PlayerLastUpdate=.*/PlayerLastUpdate=$PLASTUPDATE/g' $PLAYERFILE/$1"
 	as_user "sed -i 's/PlayerLoggedIn=.*/PlayerLoggedIn=Yes/g' $PLAYERFILE/$1"
 fi
@@ -1031,13 +981,7 @@ then
 #		echo Doesnt exist
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm ${COMMANDANDPARAMETERS[1]} Unrecognized command. Please try again or use !HELP\n'"
 		fi
-	else
-#		If they didnt use a command, then run caps_prevention
-		caps_prevention $PLAYERCHATID $(echo $CHATGREP | cut -d" " -f4- | tr -d " ") &
 	fi
-#	run spam_prevention and swear_prevention if it was a valid chat message
-	spam_prevention $PLAYERCHATID &
-	swear_prevention $PLAYERCHATID $(echo $CHATGREP | cut -d" " -f4-) &
 fi
 }
 log_kill() { 
@@ -1131,12 +1075,6 @@ then
 	as_user "echo '$ADMINSTR' >> $ADMINLOG"
 fi
 }
-log_shipbuy() { 
-SHIPBOUGHT=$(echo $@ | tr -d \( | tr -d \) | tr -d ";" )
-# Format the ship buying for he ship buy log
-WRITEBPIGHT="echo $SHIPBOUGHT on $(date '+%b_%d_%Y_%H.%M.%S') >> $SHIPBUYLOG"
-as_user "$WRITEBPIGHT"
-}
 log_playerlogout() { 
 LOGOUTPLAYER=$(echo $@ | cut -d: -f2 | cut -d\( -f1 | tr -d ' ')
 #echo "$LOGOUTPLAYER passed to playerlogout"
@@ -1154,188 +1092,6 @@ as_user "sed -i 's/PlayerLoggedIn=Yes/PlayerLoggedIn=No/g' $PLAYERFILE/$LOGOUTPL
 LOGOFF="$LOGOUTPLAYER logged off at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGOFF >> $GUESTBOOK"
 as_user "sed -i '/$LOGOUTPLAYER/d' $ONLINELOG"
-}
-log_boarding() { 
-#echo "Boarding detected"
-#echo "$@ received from logging"
-PLAYEREXITING=$(echo $@ | cut -d\[ -f4 | cut -d\; -f1 | tr -d ' ')
-#echo "Player activating boarding is $PLAYEREXITING"
-#Checks if the player file exists or if the player needs updating (after login and after death)
-if [[ ! -f $PLAYERFILE/$PLAYEREXITING ]]
-then
-	log_playerinfo $PLAYEREXITING
-fi
-# This removes ship name from player.log and replace it with spacesuit when player is added back to Playercharacter             
-if (echo $@ | grep "Added to controllers: PlayerCharacter\[" >/dev/null)
-then
-#	echo "Getting out of a ship"
-# Array that is the string for the current array
-	OUTSIDESHIP=$@
-# This is the player who is entering a ship
-#	echo "This is the ship exiter $PLAYEREXITING"
-	OBJECTTYPENEW=$(echo $OUTSIDESHIP| cut -d: -f3 | cut -d[ -f1 | tr -d " ") 
-#	echo "This is the object type the player is exiting $OBJECTTYPENEW"
-	# The last ship the player was in from player.log
-	OLD_IFS=$IFS
-	IFS=$'\n'
-	SHIPEXITED=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d= -f2)
-#	echo "This is the ship the player is exiting $SHIPEXITED"
-	IFS=$OLD_IFS
-# The current known sector the player is in
-	SHIPBOARDSECTOR=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
-#	echo "$PLAYEREXITING got out of $SHIPEXITED"
-    OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
-# Change Playercontrollingobject to the current name of ship/player and 
-	as_user "sed -i 's/PlayerControllingObject=.*/PlayerControllingObject=PlayerCharacter/g' $PLAYERFILE/$PLAYEREXITING"
-	as_user "sed -i 's/PlayerControllingType=.*/PlayerControllingType=Spacesuit/g' $PLAYERFILE/$PLAYEREXITING"
-fi
-# This add ship name to player.log and Ship.log or changes it if it is different
-if (echo $@ | grep "Added to controllers: Ship\[" >/dev/null)
-then
-#	echo "Getting into a ship"
-# Sets the string for the current shipboard array 
-	SHIPBSTRING=$@
-# Current player boarding a ship 
-#	echo "This is the ship boarder $PLAYEREXITING"
-	IFS=$'\n'
-# Current Ship being boarded
-	SHIPBOARDED=$(echo $SHIPBSTRING | cut -d\[ -f5 | cut -d\] -f1 )   
-#	echo "This is the ship being boarded $SHIPBOARDED"
-	OBJECTTYPENEW=$(echo $SHIPBSTRING| cut -d: -f3 | cut -d[ -f1 | tr -d " ")
-#	echo "This is the new object type $OBJECTTYPENEW"
-# Last ship player was in from player.log
-	SBACTIVEOLDSHIP=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d= -f2)
-#	echo "This is the old ship the player controlling object $SBACTIVEOLDSHIP"
-	IFS=$OLD_IFS
-#	echo "$SHIPBOARDED is the ship being boarded"
-#   echo "$SBACTIVEOLDSHIP is the old ship player was in"
-# Current last known player sector
-	SHIPBRDSC=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
-#	echo "This is the sector the boarding is taking place $SHIPBRDSC"
-# If the player is found in the player.log then write the new ship to it    
-#	echo "Changing character file to reflect new ship"
-# Change the last boarded ship to the new ship uses playername to ensure the correct line used      
-	as_user "sed -i 's/PlayerControllingObject=.*/PlayerControllingObject=$SHIPBOARDED/g' $PLAYERFILE/$PLAYEREXITING"
-	as_user "sed -i 's/PlayerControllingType=.*/PlayerControllingType=Ship/g' $PLAYERFILE/$PLAYEREXITING"
-# If no ship file exists then creates one    
-	if [ ! -f $SHIPLOG ] 
-	then
-#		echo "no file"   
-		as_user "echo \{$SHIPBOARDED\} \[$PLAYEREXITING\] \<~none\> \($SHIPBRDSC\) >> $SHIPLOG" 
-	fi
-# If the ship log does exist 
-	if  [ -e $SHIPLOG ]
-	then 
-# Check to see if ship is already in ship log      
-		if grep "{$SHIPBOARDED}" $SHIPLOG >/dev/null
-		then
-#          	echo "ship found"
-# Placeholder       
-# Grab the old board as a variable             
-			OLDBOARDER=$(grep "{$SHIPBOARDED}" $SHIPLOG | cut -d\[ -f2 | cut -d\] -f1) 
-#			echo "The oldboarder is $OLDBOARDER"
-			as_user "sed -i 's/{$SHIPBOARDED} \[$OLDBOARDER\]/{$SHIPBOARDED} \[$PLAYEREXITING\]/g' $SHIPLOG"
-			# If the ship log exists but no record of the ship write it to a new line on the log
-		else 
-#			echo "file found but no ship name, writing"
-# Write the new ship, boarder, and current sector to ship log
-			as_user "echo \{$SHIPBOARDED\} \[$PLAYEREXITING\] \<~none\> \($SHIPBRDSC\) >> $SHIPLOG"  
-# Write the new ship to the player log
-		fi
-	fi
-fi
-if (echo $@ | grep "Added to controllers: SpaceStation\[" >/dev/null)
-then
-#	echo "Space Station Boarded"
-# Sets the string for the current station board array 
-	STBSTRING=$@
-#	echo "$STBSTRING"
-# Current player boarding a station 
-#	echo "Space station boarder $PLAYEREXITING"
-# Current Station being boarded
-	OLD_IFS=$IFS
-	IFS=$'\n'
-	STBOARDED=$(echo $STBSTRING | cut -d_ -f3,4 | cut -d\( -f1)  
-	IFS=$OLD_IFS
-#	echo "Space station boarded $STBOARDED"
-# Current last known player sector
-	STATIONBRDSC=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
-#	echo "This is the sector the station is in $STATIONBRDSC"
-	OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
-#	echo "This is the old object type the player was controlling $OBJECTTYPEOLD"
-# Last ship player was in from player.log
-	OLD_IFS=$IFS
-	IFS=$'\n'
-	SBACTIVEOLDSHIP=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d= -f2)  
-	IFS=$OLD_IFS  
-#	echo "$SBACTIVEOLDSHIP"
-#       echo "Station board found"
-# If the player is found in the player.log then write the new ship to it    
-	
-# Change the last boarded ship to the new ship uses playername to ensure the correct line used      
-#	echo "Changing player file to have station name as controlling object and station as the object type"
-	as_user "sed -i 's/PlayerControllingObject=.*/PlayerControllingObject=$STBOARDED/g' $PLAYERFILE/$PLAYEREXITING"
-	as_user "sed -i 's/PlayerControllingType=.*/PlayerControllingType=Spacestation/g' $PLAYERFILE/$PLAYEREXITING"
-# If no station file exists then creates one    
-	if [ ! -f $STATIONLOG ] 
-	then
-#		echo "no file"   
-		as_user "echo \{$STBOARDED\} \[$PLAYEREXITING\] \($STATIONBRDSC\) >> $STATIONLOG" 
-	fi
-# If the station log does exist 
-	if  [ -e $STATIONLOG ]
-	then 
-# Check to see if station is already in station log      
-		if grep "{$STBOARDED}" $STATIONLOG >/dev/null
-		then
-# Placeholder
-			STATIONFOUND=1
-#			echo "station already found"
-			as_user "sed -i 's/{$STBOARDED\} .*/$STBOARDED \[$PLAYEREXITING\] \($STATIONBRDSC\)/g' $STATIONLOG"
-# If the station log exists but no record of the ship write it to a new line on the log
-		else 
-#			echo "file found but no station name, writing"
-# Write the new ship, boarder, and current sector to ship log
-			as_user "echo \{$STBOARDED\} \[$PLAYEREXITING\] \($STATIONBRDSC\) >> $STATIONLOG"  
-		fi
-	fi
-fi
-if (echo $@ | grep "Added to controllers: Planet(" >/dev/null)
-then
-	PLANETSTRING=$@
-#	echo $PLANETSTRING
-#	echo "Planet boarder $PLAYEREXITING"
-	OLD_IFS=$IFS
-	IFS=$'\n'
-	PLANETBOARDED=$(echo $PLANETSTRING | cut -d\( -f7 | cut -d \) -f1)  
-	IFS=$OLD_IFS
-#	echo "Planet $PLANETBOARDED boarded"
-	PLANETCOORDS=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
-#	echo "These are the planets coords $PLANETCOORDS"
-	OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
-#	echo "This is the previous object type the player was controlling $OBJECTTYPEOLD"
-	OLD_IFS=$IFS
-	IFS=$'\n'
-	PBACTIVEOLDSHIP=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d= -f2)  
-	IFS=$OLD_IFS
-#	echo "Changing player file to have station name as controlling object and station as the object type"
-	as_user "sed -i 's/PlayerControllingObject=$PBACTIVEOLDSHIP/PlayerControllingObject=$PLANETBOARDED/g' $PLAYERFILE/$PLAYEREXITING"
-	as_user "sed -i 's/PlayerControllingType=$OBJECTTYPEOLD/PlayerControllingType=Planet/g' $PLAYERFILE/$PLAYEREXITING"
-	if [ ! -f $PLANETLOG ] 
-	then
-#		echo "no file"   
-		as_user "echo \{$PLANETBOARDED\} \[$PLAYEREXITING\] \($PLANETCOORDS\) >> $PLANETLOG" 
-	fi
-	if [ -e $PLANETLOG ]
-	then
-		if grep "{$PLANETBOARDED}" $PLANETLOG >/dev/null
-		then
-			as_user "sed -i 's/{$PLANETBOARDED\} \[.*\] \(.*\)/$PLANETBOARDED \[$PLAYEREXITING\] \($PLANETCOORDS\)/g' $PLANETLOG"
-		else
-			as_user "echo \{$PLANETBOARDED\} \[$PLAYEREXITING\] \($PLANETCOORDS\) >> $PLANETLOG"
-		fi
-	fi
-fi
 }
 log_sectorchange() {
 #echo "Sector change detected"
@@ -1362,8 +1118,6 @@ then
 		PLOLDSCCHANGE=$(grep PlayerLocation $PLAYERFILE/$PLAYERSCSOLO | cut -d= -f2 | tr -d ' ')
 #		echo "This was the last object player was in $PLOLDSCOTYPE"
 		as_user "sed -i 's/PlayerLocation=$PLOLDSCCHANGE/PlayerLocation=$PLAYERSCSOLOCHANGE/g' $PLAYERFILE/$PLAYERSCSOLO"
-		universeboarder $PLAYERSCSOLOCHANGE $PLAYERSCSOLO
-		customspawns $PLAYERSCSOLOCHANGE $PLAYERSCSOLO &
 	#----------------------------SHIP---------------------------------------------
 	# If there is a sector change with a ship
 	elif (echo "$SCCHNGTR" | grep Ship >/dev/null)
@@ -1388,14 +1142,6 @@ then
 		OLDSHIPSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCSHIP | cut -d= -f2 | tr -d ' ')
 	#	echo "This is the old sector $OLDSHIPSC"
 		as_user "sed -i 's/PlayerLocation=$OLDSHIPSC/PlayerLocation=$PLAYERSCSHIPCHANGE/g' $PLAYERFILE/$PLAYERSCSHIP"
-		if (grep "{$SHIPSC}" $SHIPLOG >/dev/null)
-		then
-			as_user "sed -i 's/{$SHIPSC} .*/{$SHIPSC} \[$PLAYERSCSHIP\] \<~none\> \($PLAYERSCSHIPCHANGE\)/g' $SHIPLOG"
-		else
-			as_user "echo {$SHIPSC} \[$PLAYERSCSHIP\] \<~none\> \($PLAYERSCSHIPCHANGE\) >> $SHIPLOG" 
-		fi
-		universeboarder $PLAYERSCSHIPCHANGE $PLAYERSCSHIP
-		customspawns $PLAYERSCSHIPCHANGE $PLAYERSCSHIP &
 	#----------------------------STATION---------------------------------------------
 	# If there is a sector change with a station
 	elif (echo "$SCCHNGTR" | grep SpaceStation >/dev/null)
@@ -1420,14 +1166,6 @@ then
 		OLDSTATIONSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCSTATION | cut -d= -f2 | tr -d ' ')
 	#	echo "This is the old sector $OLDSTATIONSC"
 		as_user "sed -i 's/PlayerLocation=$OLDSTATIONSC/PlayerLocation=$PLAYERSCSTATIONCHANGE/g' $PLAYERFILE/$PLAYERSCSTATION"
-		if (grep "{$STATIONSC}" $STATIONLOG >/dev/null)
-		then
-			as_user "sed -i 's/{$STATIONSC} .*/{$STATIONSC} \[$PLAYERSCSTATION\] \($PLAYERSCSTATIONCHANGE\)/g' $STATIONLOG"
-		else
-			as_user "echo {$STATIONSC} \[$PLAYERSCSTATION\] \($PLAYERSCSTATIONCHANGE\) >> $STATIONLOG" 
-		fi
-		universeboarder $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION
-		customspawns $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION &
 	#----------------------------PLANET---------------------------------------------
 	# If there is a sector change with a planet
 	elif (echo "$SCCHNGTR" | grep Planet >/dev/null)
@@ -1452,29 +1190,12 @@ then
 		OLDPLANETSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCPLANET | cut -d= -f2 | tr -d ' ')
 	#	echo "This is the old sector $OLDPLANETSC"
 		as_user "sed -i 's/PlayerLocation=$OLDPLANETSC/PlayerLocation=$PLAYERSCPLANETCHANGE/g' $PLAYERFILE/$PLAYERSCPLANET"
-		if (grep "{$PLANETSC}" $PLANETLOG >/dev/null)
-		then
-			as_user "sed -i 's/{$PLANETSC} .*/{$PLANETSC} \[$PLAYERSCPLANET\] \($PLAYERSCPLANETCHANGE\)/g' $PLANETLOG"
-		else
-			as_user "echo {$PLANETSC} \[$PLAYERSCPLANET\] \($PLAYERSCPLANETCHANGE\) >> $PLANETLOG" 
-		fi
-		universeboarder $PLAYERSCPLANETCHANGE $PLAYERSCPLANET
-		customspawns $PLAYERSCPLANETCHANGE $PLAYERSCPLANET &
 	fi
 fi
 }
 log_destroystring() {
 # Set the destroystr to the current array
 DESTROYSTR=$@
-# If the destroyed entity is a ship then
-if [ ! -f $SHIPLOG ]
-then
-	as_user "touch $SHIPLOG"
-fi
-if [ ! -f $STATIONLOG ]
-then
-	as_user "touch $STATIONLOG"
-fi
 if echo $DESTROYSTR | grep "SHIP" >/dev/null
 then
 #	echo "Ship destroyed"
@@ -1490,28 +1211,6 @@ then
 	as_user "sed -i '$REMOVEDESHIP' '$SHIPLOG'"
 fi
 # If the destroyed entity is a spacestation then
-if echo $DESTROYSTR | grep "SPACESTATION" >/dev/null
-then
-#	echo "Station destroyed"
-	OLD_IFS=$IFS
-	IFS=$'\n'
-# The current destroyed station
-	DESSTATION=$(echo $DESTROYSTR | cut -d_ -f 3- | cut -d. -f1)
-	IFS=$OLD_IFS
-# Use sed to remove station for station log
-#         echo $DESSTATION
-	REMOVEDESTATION="/^${DESSTATION}/d" 
-	as_user "sed -i '$REMOVEDESTATION' '$STATIONLOG'"
-	if grep -q "${DESSTATION}" $SECTORFILE
-	then
-		FACTION=$(grep "${DESSTATION}" $SECTORFILE | cut -d" " -f3)
-		SECTOR=$(grep "${DESSTATION}" $SECTORFILE | cut -d" " -f2)
-		as_user "sed -i '/.* ${DESSTATION}/d' $SECTORFILE"
-		as_user "sed -i 's/ $SECTOR//g' $FACTIONFILE/$FACTION"
-		as_user "sed -i '/^.*${SECTOR}.*/d' $PROTECTEDSECTORS"
-		sectoradjacent $FACTION 
-	fi
-fi
 }
 log_on_login() { 
 LOGINPLAYER=$(echo $@ | cut -d: -f2 | cut -d" " -f2)
@@ -1520,9 +1219,7 @@ create_playerfile $LOGINPLAYER
 DATE=$(date '+%b_%d_%Y_%H.%M.%S')
 as_user "sed -i 's/JustLoggedIn=.*/JustLoggedIn=Yes/g' $PLAYERFILE/$LOGINPLAYER"
 as_user "sed -i 's/ChatCount=.*/ChatCount=0/g' $PLAYERFILE/$LOGINPLAYER"
-as_user "sed -i 's/SpamWarning=.*/SpamWarning=No/g' $PLAYERFILE/$LOGINPLAYER"
 as_user "sed -i 's/SwearCount=.*/SwearCount=0/g' $PLAYERFILE/$LOGINPLAYER"
-as_user "sed -i 's/CapsCount=.*/CapsCount=0/g' $PLAYERFILE/$LOGINPLAYER"
 as_user "sed -i 's/PlayerLastLogin=.*/PlayerLastLogin=$DATE/g' $PLAYERFILE/$LOGINPLAYER"
 LOGON="$LOGINPLAYER logged on at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGON >> $GUESTBOOK"
@@ -1619,54 +1316,6 @@ fi
 
 #------------------------------Game mechanics-----------------------------------------
 
-universeboarder() { 
-if [ "$UNIVERSEBOARDER" = "YES" ]
-then
-	XULIMIT=$(($(echo $UNIVERSECENTER | cut -d"," -f1) + $UNIVERSERADIUS))
-	YULIMIT=$(($(echo $UNIVERSECENTER | cut -d"," -f2) + $UNIVERSERADIUS))
-	ZULIMIT=$(($(echo $UNIVERSECENTER | cut -d"," -f3) + $UNIVERSERADIUS))
-	XLLIMIT=$(($(echo $UNIVERSECENTER | cut -d"," -f1) - $UNIVERSERADIUS))
-	YLLIMIT=$(($(echo $UNIVERSECENTER | cut -d"," -f2) - $UNIVERSERADIUS))
-	ZLLIMIT=$(($(echo $UNIVERSECENTER | cut -d"," -f3) - $UNIVERSERADIUS))
-	XCOORD=$(echo $1 | cut -d"," -f1)
-	YCOORD=$(echo $1 | cut -d"," -f2)
-	ZCOORD=$(echo $1 | cut -d"," -f3)
-	if [ "$XCOORD" -ge "$XULIMIT" ] || [ "$YCOORD" -ge "$YULIMIT" ] || [ "$ZCOORD" -ge "$ZULIMIT" ] || [ "$XCOORD" -lt "$XLLIMIT" ] || [ "$YCOORD" -lt "$YLLIMIT" ] || [ "$ZCOORD" -lt "$ZLLIMIT" ]
-	then
-		if [ "$XCOORD" -ge "$XULIMIT" ]
-		then
-			NEWX=$(($XCOORD - $XULIMIT + $XLLIMIT))
-		elif [ "$XCOORD" -lt "$XLLIMIT" ]
-		then
-			NEWX=$(($XCOORD - $XLLIMIT + $XULIMIT))
-		else
-			NEWX=$XCOORD
-		fi
-		if [ "$YCOORD" -ge "$YULIMIT" ]
-		then
-			NEWY=$(($YCOORD - $YULIMIT + $YLLIMIT))
-		elif [ "$YCOORD" -lt "$YLLIMIT" ]
-		then
-			NEWY=$(($YCOORD - $YLLIMIT + $YULIMIT))
-		else
-			NEWY=$YCOORD
-		fi
-		if [ "$ZCOORD" -ge "$ZULIMIT" ]
-		then
-			NEWZ=$(($ZCOORD - $ZULIMIT + $ZLLIMIT))
-		elif [ "$ZCOORD" -lt "$ZLLIMIT" ]
-		then
-			NEWZ=$(($ZCOORD - $ZLLIMIT + $ZULIMIT))
-		else
-			NEWZ=$ZCOORD
-		fi
-		sleep 4
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $2 You have warped to the opposite side of the universe! It appears you cant go further out...\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/change_sector_for $2 $NEWX $NEWY $NEWZ\n'"
-	fi
-fi
-	
-}
 randomhelptips(){
 create_tipfile
 while [ -e /proc/$SM_LOG_PID ]
@@ -1676,179 +1325,7 @@ do
 	sleep $TIPINTERVAL
 done
 }
-spam_prevention(){
-if [ $SPAMPREVENTION = "Yes" ]
-then
-	CHATCOUNT=$(grep "ChatCount=" $PLAYERFILE/$1 | cut -d= -f2)
-	SPAMWARNING=$(grep "SpamWarning=" $PLAYERFILE/$1 | cut -d= -f2)
-	SPAMKICKS=$(grep "SpamKicks=" $PLAYERFILE/$1 | cut -d= -f2)
-# If the player has sent more messages than is allowed in the specified timeframe and they have not been warned
-	if [ $CHATCOUNT -gt $SPAMLIMIT ] && [ $SPAMWARNING = "No" ]
-	then
-		as_user "sed -i 's/SpamWarning=.*/SpamWarning=Yes/g' $PLAYERFILE/$1"
-# If they have been kicked less times than the limit, then warn them they will be kicked, otherwise warn them they will be banned
-		if [ $SPAMKICKS -le $SPAMKICKLIMIT ]
-		then
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You are sending messages too quickly! Please stop or you will be kicked! This is your only warning!\n'"
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You are sending messages too quickly! Please stop or you will be BANNED! This is your only warning!\n'"
-		fi
-# If they have sent more than the limit + the buffer many messages, and they have been warned, and they have been kicked less than the limit, then kick them
-	elif [ $CHATCOUNT -gt $(($SPAMLIMIT + $SPAMALLOWANCE)) ] && [ $SPAMWARNING = "Yes" ] && [ $SPAMKICKS -lt $SPAMKICKLIMIT ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have been kicked for spam.\n'"
-# Gives them time to receive the message
-		sleep 0.1
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
-		as_user "sed -i 's/SpamKicks=.*/SpamKicks=$(($SPAMKICKS + 1))/g' $PLAYERFILE/$1"
-# If they have sent more than the limit + the buffer many messages, and they have been warned, and they have been kicked more than the limit, then ban them
-	elif [ $CHATCOUNT -gt $(($SPAMLIMIT + $SPAMALLOWANCE)) ] && [ $SPAMWARNING = "Yes" ] && [ $SPAMKICKS -ge $SPAMKICKLIMIT ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You are BANNED for spamming. Please contact an admin to be allowed back onto the server\n'"
-# Gives them time to receive the message
-		sleep 0.1
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_name $1\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
-	fi
-# Add 1 to their ChatCount, wait until the spamtimer expires, then remove it from the count.
-	as_user "sed -i 's/ChatCount=.*/ChatCount=$(($CHATCOUNT + 1))/g' $PLAYERFILE/$1"
-	sleep $SPAMTIMER
-	CHATCOUNT=$(grep "ChatCount=" $PLAYERFILE/$1 | cut -d= -f2)
-# Ensures they cannot get a - Chat count (When they relog ChatCount gets set to 0)
-	if [ $CHATCOUNT -gt 0 ]
-	then
-		as_user "sed -i 's/ChatCount=.*/ChatCount=$(($CHATCOUNT - 1))/g' $PLAYERFILE/$1"
-	fi
-fi
-}
-swear_prevention(){
-if [ $SWEARPREVENTION = "Yes" ]
-then
-	create_barredwords
-#	Gets the chat message sent by the player
-	CHATMSG=${@:2}
-	SWEARMSG=0
-#	Counts how many swear words were sent by the player
-	for WORD in $CHATMSG
-	do
-#		i = ignore case w = match entire word
-		if grep -iqw -- $WORD $BARREDWORDS
-		then
-			let SWEARMSG++
-		fi
-	done
-#	If they sent any swear words then
-	if [ $SWEARMSG -gt 0 ]
-	then
-#		Gets the saved SwaerCount (how many swear words recently sent) and SwearKicks (how many kicks for swearing the player has had)
-		SWEARCOUNT=$(grep "SwearCount=" $PLAYERFILE/$1 | cut -d= -f2)
-		SWEARKICKS=$(grep "SwearKicks=" $PLAYERFILE/$1 | cut -d= -f2)
-#		If they have sworn less than the limit, then warn them
-		if [ $(($SWEARCOUNT + $SWEARMSG)) -lt $SWEARLIMIT ]
-		then
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please dont swear, it isnt pleasent for other players.\n'"
-			as_user "sed -i 's/SwearCount=.*/SwearCount=$(($SWEARCOUNT + $SWEARMSG))/g' $PLAYERFILE/$1"
-			sleep $SWEARTIMER
-			SWEARCOUNT=$(grep "SwearCount=" $PLAYERFILE/$1 | cut -d= -f2)
-			if [ $SWEARCOUNT -ge $SWEARCOUNT ]
-			then
-				as_user "sed -i 's/SwearCount=.*/SwearCount=$(($SWEARCOUNT - $SWEARCOUNT))/g' $PLAYERFILE/$1"
-			fi
-#		If they have sworn up to the limit, warn them of a kick
-		elif [ $(($SWEARCOUNT + $SWEARMSG)) -eq $SWEARLIMIT ]
-		then
-			if [ $SWEARKICKS -lt $SWEARKICKLIMIT ]
-			then
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Do not swear. You will be kicked if you do again.\n'"
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Do not swear. You will be BANNED if you do again.\n'"
-			fi
-			as_user "sed -i 's/SwearCount=.*/SwearCount=$(($SWEARCOUNT + $SWEARMSG))/g' $PLAYERFILE/$1"
-			sleep $SWEARTIMER
-			SWEARCOUNT=$(grep "SwearCount=" $PLAYERFILE/$1 | cut -d= -f2)
-			if [ $SWEARCOUNT -ge $SWEARCOUNT ]
-			then
-				as_user "sed -i 's/SwearCount=.*/SwearCount=$(($SWEARCOUNT - $SWEARCOUNT))/g' $PLAYERFILE/$1"
-			fi
-#		If they have sworn more than the limit then kick/ban them
-		elif [ $(($SWEARCOUNT + $SWEARMSG)) -gt $SWEARLIMIT ]
-		then
-#			If theyve been kicked too much, then ban
-			if [ $SWEARKICKS -lt $SWEARKICKLIMIT ]
-			then
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Swearing will not be tolerated. You have been kicked.\n'"
-				as_user "sed -i 's/SwearKicks=.*/SwearKicks=$(($SWEARKICKS + 1))/g' $PLAYERFILE/$1"
-				sleep 0.1
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Swearing will not be tolerated. You have been BANNED.\n'"
-				sleep 0.1
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_name $1\n'"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
-			fi
-		fi
-	fi
-fi
-}
-caps_prevention(){
-if [ $SWEARPREVENTION = "Yes" ]
-then
-#	Get the message the player sent
-	CHATMSG=${@:2}
-#	The length of the message
-	CHATLENGTH=${#CHATMSG}
-#	The number of caps in the message
-	CAPSAMOUNT=$(echo $CHATMSG | grep -o [A-Z] | wc -l)
-#	If the message is more than 4 letters long (leniency)
-	if [ $CHATLENGTH -gt 4 ]
-	then
-#		If the % of caps is higher than the config limit then
-		if [ $((($CAPSAMOUNT * 100) / $CHATLENGTH)) -gt $CAPSPERCENT ]
-		then
-#			Get the number of excessive caps messages and kicks for caps
-			CAPSCOUNT=$(grep "CapsCount=" $PLAYERFILE/$1 | cut -d= -f2)
-			CAPSKICK=$(grep "CapsKicks=" $PLAYERFILE/$1 | cut -d= -f2)
-#			If they havent reached the limit, then warn them.
-			if [ $CAPSCOUNT -lt $CAPSLIMIT ]
-			then
-				as_user "sed -i 's/CapsCount=.*/CapsCount=$(($CAPSCOUNT + 1))/g' $PLAYERFILE/$1"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please dont use caps lock.\n'"
-				sleep $CAPSTIMER
-				CAPSCOUNT=$(grep "CapsCount=" $PLAYERFILE/$1 | cut -d= -f2)
-				as_user "sed -i 's/CapsCount=.*/CapsCount=$(($CAPSCOUNT - 1))/g' $PLAYERFILE/$1"
-#			If theyre at the limit, then warn them of a kick/ban
-			elif [ $CAPSCOUNT -eq $CAPSLIMIT ]
-			then
-				as_user "sed -i 's/CapsCount=.*/CapsCount=$(($CAPSCOUNT + 1))/g' $PLAYERFILE/$1"
-				if [ $CAPSKICK -lt $CAPSKICKLIMIT ]
-				then
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 If you continue to use caps lock then you will be kicked.\n'"
-				else
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 If you continue to use caps lock then you will be BANNED.\n'"
-				fi
-				sleep $CAPSTIMER
-				CAPSCOUNT=$(grep "CapsCount=" $PLAYERFILE/$1 | cut -d= -f2)
-				as_user "sed -i 's/CapsCount=.*/CapsCount=$(($CAPSCOUNT - 1))/g' $PLAYERFILE/$1"
-#			If theyre above the limit, then kick/ban them
-			elif [ $CAPSCOUNT -gt $CAPSLIMIT ]
-			then
-				if [ $CAPSKICK -lt $CAPSKICKLIMIT ]
-				then
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have been kicked for excessive caps.\n'"
-					as_user "sed -i 's/CapsKicks=.*/CapsKicks=$(($CAPSKICK + 1))/g' $PLAYERFILE/$1"
-					sleep 0.1
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
-				else
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have been BANNED for excessive caps.\n'"
-					sleep 0.1
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_name $1\n'"
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
-				fi
-			fi
-		fi
-	fi
-fi
-}
+
 autovoteretrieval(){ 
 if [[ "$SERVERKEY" == "00000000000000000000" ]]
 then
@@ -1893,169 +1370,16 @@ function_exists(){
 declare -f -F $1 > /dev/null 2>&1
 FUNCTIONEXISTS=$?
 }
-customspawns(){
-if [ ! -f $PROTECTEDSECTORS ]
-then
-	echo "[2,2,2]" >> $PROTECTEDSECTORS
-fi
-if [ $CUSTOMSPAWNING = "Yes" ] && ! grep -qF -- "[$1]" $PROTECTEDSECTORS
-then
-#	Gets the players heat (spawn chance) and time of next allowed spawn
-	PLAYERHEAT=$(grep "PlayerHeat" $PLAYERFILE/$2 | cut -d= -f2)
-	PIRATECOOLDOWN=$(grep "PirateCooldown=" $PLAYERFILE/$2 | cut -d= -f2)
-	NEWHEAT=$(($PLAYERHEAT + 1))
-#	Increments heat by 1
-	as_user "sed -i 's/PlayerHeat=.*/PlayerHeat=$NEWHEAT/g' $PLAYERFILE/$2"
-#	Generates a random number between 0 and 100. If that number is less than $SPAWNCHANCE then a pirate wave is spawned
-	RAND=$(($RANDOM % 100))
-	SPAWNCHANCE=$(($NEWHEAT * $NEWHEAT))
-#	Limits the chances of the spawning (otherwise it would reach 100% chance)
-	if [ $SPAWNCHANCE -gt $LIMITCHANCE ]
-	then
-		SPAWNCHANCE=$LIMITCHANCE
-	fi
-	if [ $RAND -le $SPAWNCHANCE ] && [ $(date +%s) -ge $PIRATECOOLDOWN ]
-	then
-#		Picks a random number of enemies to spawn
-		NUMOFSPAWNS=$((($RANDOM % $SPAWNLIMIT) + 1))
-		for SPAWNNO in $(eval echo {1..$NUMOFSPAWNS})
-		do
-#			Picks a random ship BP to spawn
-			SPAWNSHIP=$(($RANDOM % ${#PIRATENAMES[@]}))
-#			$(date +%s)$RANDOM gives each ship a unique name
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity ${PIRATENAMES[$SPAWNSHIP]} MOB_CUSTOM_PIRATE_$(date +%s)$RANDOM $(echo $1 | tr "," " ") -1 True\n'"
-			sleep 0.1
-		done
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $2 $NUMOFSPAWNS pirates have locked onto you and warped in!\n'"
-#		Sets a delay on when the next spawn for that player can be
-		as_user "sed -i 's/PirateCooldown=.*/PirateCooldown=$(($(date +%s) + $PIRATECOOLTIMER))/g' $PLAYERFILE/$2"
-	fi
-#	Reduces the heat by 1 after 180s
-	sleep 180
-	PLAYERHEAT=$(grep "PlayerHeat=" $PLAYERFILE/$2 | cut -d= -f2)
-	NEWHEAT=$(($PLAYERHEAT - 1))
-	as_user "sed -i 's/PlayerHeat=.*/PlayerHeat=$NEWHEAT/g' $PLAYERFILE/$2"
-fi
-}
-sectorincome(){
-while [ -e /proc/$SM_LOG_PID ]
-do 
-	if [ -f $SECTORFILE ]
-	then
-#		Loops over every line in the file i.e. every owned sector
-		while read SECTOR
-		do
-			SECTOR=($SECTOR)
-#			Works out the income value for that sector based on the number of adjacent sectors (/24 because it runs 24 times a day)
-			INCOME=$(echo "($BASEINCOME * (sqrt(${SECTOR[2]})+1))/24" | bc -l | cut -d"." -f1)
-#			Probably a bit overcomplicated, and not needed, but this basically cuts the income value down to 2SF so values are more rounded
-#			Removes all but the first 2 characters, then prints the character 0 as many times as characters it cut off and then joins that back together
-			INCOME=$(echo ${INCOME:0:-$((${#INCOME} -2))}$(printf "%0.s0" $(seq 1 $((${#INCOME} -2)))))
-#			Enforces the limit on the beacon
-			if [ $((${SECTOR[3]}+INCOME)) -le $BEACONCREDITLIMIT ]
-			then
-				SECTOR[3]=$((${SECTOR[3]}+INCOME))
-			else
-				SECTOR[3]=$BEACONCREDITLIMIT
-				FACTION=${SECTOR[1]}
-			fi
-			as_user "sed -i 's/ ${SECTOR[0]} .*/ $(echo ${SECTOR[@]})/g' $SECTORFILE"
-#		Tells the while loop what file to read
-		done < $SECTORFILE
-#	Ensures it runs every hour
-		fi
-	sleep 3600
-done
-	
-}
-sectorfees(){
-while [ -e /proc/$SM_LOG_PID ]
-do 
-	if [ "$(ls -A $FACTIONFILE)" ]
-	then
-		for FACTION in $FACTIONFILE/*
-		do
-			FACTIONID=$(echo $FACTION | rev | cut -d"/" -f1 | rev)
-			OWNEDSECTORS=($(grep "OwnedSectors=" $FACTION | cut -d"=" -f2-))
-			FACTIONCREDITS=$(grep "CreditsInBank=" $FACTION | cut -d= -f2)
-			FEES=$(echo "(${#OWNEDSECTORS[@]}*$DAILYFEES)/24" | bc -l | cut -d"." -f1)
-			FACTIONCREDITS=$(($FACTIONCREDITS-$FEES))
-			if [ $FACTIONCREDITS -lt 0 ] && [ $(($FACTIONCREDITS+$FEES)) -gt 0 ] && [ $FEES -gt 0 ]
-			then
-				sleep 0.1
-			elif [ $FACTIONCREDITS -lt $((-$FEES*48)) ] && [ $FEES -gt 0 ]
-			then
-				SECTOR=${OWNEDSECTORS[0]}
-				BEACONNAME=$(grep -- " $SECTOR " $SECTORFILE | cut -d" " -f6)
-				as_user "sed -i '/ $SECTOR .*/d' $SECTORFILE"
-				as_user "sed -i 's/ $SECTOR//g' $FACTION"
-				as_user "sed -i '/[$SECTOR]/d' $PROTECTEDSECTORS"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all $BEACONNAME unused false\n'"
-				sectoradjacent $FACTIONID
-			fi
-			as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$FACTIONCREDITS/g' $FACTION"
-		done
-	fi
-	sleep 3600
-done
-}
-sectoradjacent(){
-FACTIONSECTORS=$(grep "OwnedSectors=" $FACTIONFILE/$1 | cut -d= -f2-)
-for SECTOR in $FACTIONSECTORS
-do
-	XCOORD=$(echo $SECTOR | cut -d"," -f1)
-	YCOORD=$(echo $SECTOR | cut -d"," -f2)
-	ZCOORD=$(echo $SECTOR | cut -d"," -f3)
-	NEIGHBOURSECTORS=0
-	for XRANGE in $(($XCOORD -1)) $(($XCOORD +1))
-	do
-		if $(echo "$FACTIONSECTORS" | grep -q -- "$XRANGE,$YCOORD,$ZCOORD")
-		then
-			let NEIGHBOURSECTORS++
-		fi
-	done
-	for YRANGE in $(($YCOORD -1)) $(($YCOORD +1))
-	do
-		if $(echo "$FACTIONSECTORS" | grep -q -- "$XCOORD,$YRANGE,$ZCOORD")
-		then
-			let NEIGHBOURSECTORS++
-		fi
-	done
-	for ZRANGE in $(($ZCOORD -1)) $(($ZCOORD +1))
-	do
-		if $(echo "$FACTIONSECTORS" | grep -q -- "$XCOORD,$YCOORD,$ZRANGE")
-		then
-			let NEIGHBOURSECTORS++
-		fi
-	done
-	SECTORDATA=($(grep -- $SECTOR $SECTORFILE))
-	SECTORDATA[2]=$NEIGHBOURSECTORS
-	as_user "sed -i 's/ $SECTOR .*/ $(echo ${SECTORDATA[@]})/g' $SECTORFILE"
-done
-}
 
 #---------------------------Files Daemon Writes and Updates---------------------------------------------
 
 write_factionfile() { 
 CREATEFACTION="cat > $FACTIONFILE/$1 <<_EOF_
 CreditsInBank=0
-OwnedSectors=0
-TrespassMessage=0
-TaxPercent=0
 _EOF_"
 as_user "$CREATEFACTION"
 }
-write_barredwords() {
-CREATEBARRED="cat > $BARREDWORDS <<_EOF_
-fuck
-shit
-crap
-dick
-ffs
-asshole
-_EOF_"
-as_user "$CREATEBARRED"
-}
+
 write_configpath() {
 CONFIGCREATE="cat > $CONFIGPATH <<_EOF_
 #  Settings below can all be custom tailored to any setup.
@@ -2091,51 +1415,13 @@ PLAYERFILE=$STARTERPATH/playerfiles #The directory that contains all the individ
 KILLLOG=$STARTERPATH/logs/kill.log #The file with a record of all deaths on the server
 ADMINLOG=$STARTERPATH/logs/admin.log #The file with a record of all admin commands issued
 GUESTBOOK=$STARTERPATH/logs/guestbook.log #The file with a record of all the logouts on the server
-STATIONLOG=$STARTERPATH/logs/station.log #The file that contains all of the stations on the server
-PLANETLOG=$STARTERPATH/logs/planet.log #The file that contains all of the planets on the server
-SHIPBUYLOG=$STARTERPATH/logs/shipbuy.log #The file that contains all the ships spawned on the server
 BANKLOG=$STARTERPATH/logs/bank.log #The file that contains all transactions made on the server
 ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of currently online players
 TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players
 FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual faction files
-BARREDWORDS=$STARTERPATH/logs/barredwords.log #The file that contains all blocked words (for use with SwearPrevention)
-SECTORFILE=$STARTERPATH/logs/sectordata.log #The file that contains a list of all owned sectors, and their stats
-PROTECTEDSECTORS=$STARTERPATH/logs/protected.log #Contains a list of all protected sectors (only works with custom spawning)
-#-------------------------Chat Settings-------------------------------------------------------------------
-SPAMPREVENTION=Yes # Turns on or off the SpamPrevention system (Yes/No)
-SPAMLIMIT=5 # The number of messages that can be sent within the $SPAMTIMER before a player will be warned
-SPAMTIMER=10 # The time taken for the message counter to reduce by one after sending a chat message
-SPAMALLOWANCE=2 # The number of messages allowed between receiving the warning and being kicked
-SPAMKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)
-SWEARPREVENTION=Yes # Turns on or off the SwearPrevention system (Yes/No)
-SWEARLIMIT=2 # The number of swear words allowed within $SWEARTIMER seconds
-SWEARTIMER=60 # The time taken for the swear counter to reduce by one after swearing
-SWEARKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)
-CAPSPREVENTION=Yes # Turns on or off the CapsPrevention system (Yes/No)
-CAPSLIMIT=5 # The number of messages that can be sent that exceed the $CAPSPERCENT limit
-CAPSTIMER=10 # The time taken for the caps counter to reduce by one after sending a message with too many caps
-CAPSKICKLIMIT=4 # The number of kicks a player can recieve for Caps before theyre banned
-CAPSPERCENT=30 # The percentage of letters in a chat message that can be caps
-#-------------------------Custom Spawns-------------------------------------------------------------------
-CUSTOMSPAWNING=Yes #Determines if the server will use a custom spawning method, utilising player movement
-PIRATENAMES=('Isanth-VI') #The blueprint names of all pirate ships on the server
-LIMITCHANCE=50 #The % chance of pirates spawning per sector change at maximum
-SPAWNLIMIT=9 #The maximum number of pirates inside a wave
-PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn
-#-------------------------Sector ownership-------------------------------------------------------------------
-BEACONNAME='Beacon' #The blueprint name of the sector beacon station (select a station and use /save)
-SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors equals 100% cost, 6 boardering sectors equals 50% cost)
-DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)
-BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors equals baseincome, 6 boardering sectors equals baseincome x 4)
-BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
-SECTORREFUND=90 #The percentage of credits back from selling a sector
 #------------------------Game settings----------------------------------------------------------------------------
 VOTECHECKDELAY=10 #The time in seconds between each check of starmade-servers.org
 CREDITSPERVOTE=1000000 # The number of credits a player gets per voting point.
-FOLDLIMIT=900 #Due to the way bash square roots numbers, this is the square of the distance limit to be more accurate with distances
-UNIVERSEBOARDER=YES #Turn on and off the universe boarder (YES/NO)
-UNIVERSECENTER=\"2,2,2\" #Set the center of the universe boarder
-UNIVERSERADIUS=50 #Set the radius of the universe boarder around 
 TIPINTERVAL=600 #Number of seconds between each tip being shown
 STARTINGRANK=Ensign #The initial rank players recieve when they log in for the first time. Can be edited.
 _EOF_"
@@ -2149,42 +1435,29 @@ VotingPoints=0
 CurrentVotes=0
 Bounty=0
 BountyPlaced=0
-WarpTeir=1
-CommandConfirm=0
 CurrentIP=0.0.0.0
 CurrentCredits=0
 PlayerFaction=None
 PlayerLocation=2,2,2
-PlayerControllingType=Spacesuit
-PlayerControllingObject=PlayerCharacter
 PlayerLastLogin=0
 PlayerLastCore=0
-PlayerLastFold=0
 PlayerLastUpdate=0
 PlayerLastKilled=None
 PlayerKilledBy=None
 PlayerKilledtime=0
 PlayerLoggedIn=No
 ChatCount=0
-SpamWarning=No
-SpamKicks=0
-SwearCount=0
-SwearKicks=0
-CapsCount=0
-CapsKicks=0
 JustLoggedIn=No
-PlayerHeat=0
-PirateCooldown=0
 _EOF_"
 as_user "$PLAYERCREATE"
 }
 write_rankcommands() {
 CREATERANK="cat > $RANKCOMMANDS <<_EOF_
-Ensign POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE PING HELP CORE SEARCH CLEAR LISTWHITE BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FDEPOSIT FWITHDRAW FBALANCE
-Lieutenant POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE PING HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FDEPOSIT FWITHDRAW FBALANCE
-Commander POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE PING HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FDEPOSIT FWITHDRAW FBALANCE
-Captain POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE PING HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN RESTART DESPAWN KILL BANHAMMER TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FDEPOSIT FWITHDRAW FBALANCE
-Admiral POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE PING HELP CORE SEARCH CLEAR LISTWHITE RANKSET RANKUSER BANHAMMER KILL WHITEADD BANPLAYER UNBAN SHUTDOWN RESTART CREDITS IMPORT EXPORT DESPAWN LOADSHIP GIVE GIVESET KICK GODON GODOFF INVISION INVISIOFF TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART MYDETAILS ADMINCOOLDOWN ADMINREADFILE THREADDUMP GIVESET GIVEMETA BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FDEPOSIT FWITHDRAW FBALANCE
+Ensign POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE CLEAR FDEPOSIT FWITHDRAW FBALANCE
+Lieutenant POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
+Commander POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
+Captain POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
+Admiral POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR RANKSET RANKUSER MYDETAILS THREADDUMP GIVEMETA FDEPOSIT FWITHDRAW FBALANCE
 Admin -ALL-
 _EOF_"
 as_user "$CREATERANK"
@@ -2192,7 +1465,6 @@ as_user "$CREATERANK"
 write_tipfile() {
 CREATETIP="cat > $TIPFILE <<_EOF_
 !HELP is your friend! If you are stuck on a command, use !HELP <Command>
-Want to get from place to place quickly? Try !FOLD
 Ever wanted to be rewarded for voting for the server? Vote now at starmade-servers.org to get voting points! 
 Want to reward people for killing your arch enemy? Try !POSTBOUNTY
 Fancy becoming a bounty hunter? Use !LISTBOUNTY to see all bounties
@@ -2233,12 +1505,6 @@ create_rankscommands(){
 if [ ! -e $RANKCOMMANDS ]
 then
 	write_rankcommands
-fi
-}
-create_barredwords(){
-if [ ! -e $BARREDWORDS ]
-then
-	write_barredwords
 fi
 }
 update_file() {
@@ -2315,7 +1581,6 @@ done
 }
 update_daemon() {
 update_file write_configpath
-update_file write_barredwords
 update_file write_tipfile
 update_file write_rankcommands
 PUPDATE=( $(ls $PLAYERFILE) )
@@ -3101,7 +2366,7 @@ debug)
 	parselog ${@:2}
 	;;
 *)
-echo "Doomsider's and Titanmasher's Starmade Daemon (DSD) V.17.1"
+echo "DTSDlite V 0.9.0-alpha"
 echo "Usage: starmaded.sh {help|updatefiles|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|livebackup|backupstar|setplayermax|detect|log|screenlog|check|precheck|ban|dump|box}"
 #******************************************************************************
 exit 1
