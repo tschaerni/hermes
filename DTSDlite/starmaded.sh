@@ -320,7 +320,7 @@ echo "Erase complete"
 fi
 }
 sm_install() {
-if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/nulll
+if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
 	echo "$SERVICE is running! Will not start install"
 else
