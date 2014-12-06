@@ -693,30 +693,10 @@ create_rankscommands
 #				echo $CURRENTSTRING
 				log_sectorchange $CURRENTSTRING &
 				;;
-			*"$SEARCHDOCK"*) 
-#				echo "Docking detected"
-#				echo $CURRENTSTRING
-				log_docking docking $CURRENTSTRING &
-				;;
-			*"$SEARCHUNDOCK"*) 
-#				echo "Undocking detected"
-#				echo $CURRENTSTRING
-				log_docking undocking $CURRENTSTRING &
-				;;
 			*"$SEARCHADMIN"*) 
 #				echo "Admin detected"
 #				echo $CURRENTSTRING
 				log_admincommand $CURRENTSTRING &
-				;;
-			*"$SEARCHKILL"*) 
-#				echo "Kill detected"
-#				echo $CURRENTSTRING
-				log_kill $CURRENTSTRING &
-				;;
-			*"$SEARCHDESTROY"*) 
-#				echo "Destroy detected"
-#				echo $CURRENTSTRING
-				log_destroystring $CURRENTSTRING &
 				;;
 			*"$SEARCHINIT"*) 
 #				echo "Init detected"
@@ -758,30 +738,10 @@ parselog(){
 #				echo $@
 				log_sectorchange $@ &
 				;;
-			*"$SEARCHDOCK"*) 
-#				echo "Docking detected"
-#				echo $@
-				log_docking docking $@ &
-				;;
-			*"$SEARCHUNDOCK"*) 
-#				echo "Undocking detected"
-#				echo $@
-				log_docking undocking $@ &
-				;;
 			*"$SEARCHADMIN"*) 
 #				echo "Admin detected"
 #				echo $@
 				log_admincommand $@ &
-				;;
-			*"$SEARCHKILL"*) 
-#				echo "Kill detected"
-#				echo $@
-				log_kill $@ &
-				;;
-			*"$SEARCHDESTROY"*) 
-#				echo "Destroy detected"
-#				echo $@
-				log_destroystring $@ &
 				;;
 			*"$SEARCHINIT"*) 
 #				echo "Init detected"
@@ -976,89 +936,6 @@ then
 	fi
 fi
 }
-log_kill() { 
-# If kill string is found
-# Set CKILLSTRING to current kill string array
-CKILLSTRING=$@
-# If the kill string involved a player during handgun combat
-if echo $CKILLSTRING | grep "PlayerCharacter" >/dev/null
-then
-# Grab the current player killer
-	PLAYERKILLER=$(echo $CKILLSTRING | cut -d"(" -f6 | cut -d")" -f1 | cut -d"_" -f3-)
-#	echo PlayerKiller is $PLAYERKILLER
-	if [ -e $PLAYERFILE/$PLAYERKILLER ]
-	then
-		PLAYERFILEEXISTS=1
-#	    echo "player killer has a playerfile"
-	else
-		log_playerinfo $PLAYERKILLER
-	fi
-	
-# Grab the current player killed
-	PLAYERDEAD=$(echo $CKILLSTRING | cut -d\[ -f4 | cut -d\; -f1)
-	if [ -e $PLAYERFILE/$PLAYERDEAD ]
-	then
-		PLAYERFILEEXISTS=1
-#	    echo "Dead player has a playerfile"
-	else
-		log_playerinfo $PLAYERDEAD
-	fi
-	
-#	echo playerdead is $PLAYERDEAD
-# Send information to the playerfiles and log to indicate who killed, got killed, and at what time
-	as_user "echo $PLAYERKILLER killed $PLAYERDEAD without predujice >> $KILLLOG"
-	as_user "sed -i 's/PlayerLastKilled=.*/PlayerLastKilled=$PLAYERDEAD/g' $PLAYERFILE/$PLAYERKILLER"
-	as_user "sed -i 's/PlayerKilledBy=.*/PlayerKilledBy=$PLAYERKILLER/g' $PLAYERFILE/$PLAYERDEAD"
-	as_user "sed -i 's/PlayerKilledtime=.*/PlayerKilledtime=$(date +%s)/g' $PLAYERFILE/$PLAYERDEAD"
-	log_checkbounty $PLAYERKILLER $PLAYERDEAD
-# If the current kill string involved ship combat        
-elif echo $CKILLSTRING | grep "Ship" >/dev/null
-then
-# Grab the current ship that did the killing
-	SHIPKILLER=$(echo $CKILLSTRING | cut -d\[ -f3 | cut -d\] -f1)
-#	echo ShipKiller is $SHIPKILLER
-# Grab the player than died
-	PLAYERDEAD=$(echo $CKILLSTRING | cut -d\[ -f2 | cut -d\; -f1)
-	if [ -e $PLAYERFILE/$PLAYERDEAD ]
-	then
-		PLAYERFILEEXISTS=1
-#	    echo "dead player has a playerfile"
-	else
-		log_playerinfo $PLAYERDEAD
-	fi
-	
-#	echo PlayerDead is $PLAYERDEAD
-# Grab the player who did the killing by matching the ship to the player in the ship.log
-	if grep $SHIPKILLER $SHIPLOG
-	then
-		PLAYERKILLER=$(grep $SHIPKILLER $SHIPLOG | cut -d\[ -f2 | cut -d\] -f1)
-#		echo PlayerKiller is $PLAYERKILLER
-		if [ -e $PLAYERFILE/$PLAYERKILLER ]
-		then
-			PLAYERFILEEXISTS=1
-#		    echo "player killer has a playerfile"
-		else
-			log_playerinfo $PLAYERKILLER
-		fi
-# Write to the kill log who did the killing and who got killed
-		as_user "echo $PLAYERKILLER killed $PLAYERDEAD without predujice >> $KILLLOG"
-		as_user "sed -i 's/PlayerLastKilled=.*/PlayerLastKilled=$PLAYERDEAD/g' $PLAYERFILE/$PLAYERKILLER"
-		as_user "sed -i 's/PlayerKilledBy=.*/PlayerKilledBy=$PLAYERKILLER/g' $PLAYERFILE/$PLAYERDEAD"
-		as_user "sed -i 's/PlayerKilledtime=.*/PlayerKilledtime=$(date +%s)/g' $PLAYERFILE/$PLAYERDEAD"
-		log_checkbounty $PLAYERKILLER $PLAYERDEAD
-	else
-		as_user "echo $PLAYERDEAD was killed by AI ships >> $KILLLOG"
-	fi
-
-#Checks if it was a suicide
-elif echo $CKILLSTRING | grep "killed" >/dev/null
-then
-	PLAYERDEAD=$(echo $CKILLSTRING | cut -d\[ -f2 | cut -d\; -f1)
-	as_user "echo Life was too much for $PLAYERDEAD and so they committed suicide >> $KILLLOG"
-else
-	as_user "echo $PLAYERDEAD was killed by an AI character >> $KILLLOG"
-fi
-}
 log_admincommand() { 
 if [[ ! $@ == *org.schema.schine.network.server.AdminLocalClient* ]] && [[ ! $@ =~ "no slot free for" ]]
 then
@@ -1185,25 +1062,6 @@ then
 	fi
 fi
 }
-log_destroystring() {
-# Set the destroystr to the current array
-DESTROYSTR=$@
-if echo $DESTROYSTR | grep "SHIP" >/dev/null
-then
-#	echo "Ship destroyed"
-# Set the field seperator to new line so that a ship with a space in its name is recorded as the variable
-	OLD_IFS=$IFS
-	IFS=$'\n'
-# The current destroyed ship
-	DESSHIP=$(echo $DESTROYSTR | cut -d_ -f 3- | cut -d. -f1)
-	IFS=$OLD_IFS
-#   echo $DESSHIP
-# Use sed to remove ship from ship log
-	REMOVEDESHIP="/^${DESSHIP}/d" 
-	as_user "sed -i '$REMOVEDESHIP' '$SHIPLOG'"
-fi
-# If the destroyed entity is a spacestation then
-}
 log_on_login() { 
 LOGINPLAYER=$(echo $@ | cut -d: -f2 | cut -d" " -f2)
 #echo "$LOGINPLAYER logged in"
@@ -1227,82 +1085,6 @@ then
 	# A chat message that is displayed whenever a player logs in
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'"
 	as_user "sed -i 's/JustLoggedIn=.*/JustLoggedIn=No/g' $PLAYERFILE/$INITPLAYER"
-fi
-}
-log_docking(){
-if [ $1 = "docking" ]
-then
-	DOCKSTRING=${@:2}
-	DOCKSHIP=$(echo $DOCKSTRING | cut -d"[" -f3 | cut -d"]" -f1)
-#	echo $DOCKSHIP
-	if $(echo $DOCKSTRING | grep -q -- "ON Ship\[")
-	then
-		DOCKENTITY=$(echo $DOCKSTRING | cut -d"[" -f4 | cut -d"]" -f1)"@ship"
-	else
-		DOCKENTITY=$(echo $DOCKSTRING | cut -d"[" -f4 | cut -d"]" -f1 | cut -d"_" -f3- | cut -d"(" -f1)"@station"
-	fi
-#	echo $DOCKENTITY
-	if (grep "{$DOCKSHIP}" $SHIPLOG >/dev/null)
-	then
-		SHIPDATA=($(grep "{$DOCKSHIP}" $SHIPLOG))
-		SHIPDATA[2]="<$DOCKENTITY>"
-		as_user "sed -i 's/{$DOCKSHIP} .*/$(echo ${SHIPDATA[@]})/g' $SHIPLOG"
-	else
-		as_user "echo {$DOCKSHIP} \[~Unknown\] \<$DOCKENTITY\> \(~Unknown\) >> $SHIPLOG" 
-	fi
-elif [ $1 = "undocking" ]
-then
-	DOCKSTRING=${@:2}
-	DOCKSHIP=$(echo $DOCKSTRING | cut -d"[" -f3 | cut -d"]" -f1)
-#	echo $DOCKSHIP
-	if (grep "{$DOCKSHIP}" $SHIPLOG >/dev/null)
-	then
-		SHIPDATA=($(grep "{$DOCKSHIP}" $SHIPLOG))
-		SHIPDATA[2]="<~none>"
-		as_user "sed -i 's/{$DOCKSHIP} .*/$(echo ${SHIPDATA[@]})/g' $SHIPLOG"
-	else
-		as_user "echo {$DOCKSHIP} \[~Unknown\] \<~none\> \(~Unknown\) >> $SHIPLOG"
-	fi
-fi
-}
-log_checkbounty(){ 
-#echo "Checking Bounty for $2 for playerkiller $1" 
-source $PLAYERFILE/$2
-BOUNTYAMOUNT=$Bounty
-if [ "$BOUNTYAMOUNT" -eq 0 ]
-then
-#echo "No bounty detected"
-NOBOUNTY=1
-else
-#	echo "Current bounty for player killed $BOUNTYAMOUNT"
-	BOUNTYTIME=$BountyPlaced
-#	echo "Current time of bounty for player killed $BountyPlaced"
-	LASTKILLEDPLAYER=$PlayerKilledBy
-#	echo "This is the last player to kill dead player $LASTKILLEDPLAYER"
-	LASTKILLEDTIME=$PlayerKilledtime
-#	echo "This is the time of the last player to kill dead player $LASTKILLEDTIME"
-	source $PLAYERFILE/$1
-	LASTPLAYERKILLED=$PlayerLastKilled
-#	echo "This is the last player the playerkiller killed $LASTPLAYERKILLED"
-	PLAYERBALANCE=$CreditsInBank
-#	echo "This is the current credits in the bank for the playerkiller $CreditsInBank"
-	if [ "$LASTPLAYERKILLED" == "$2" ] 
-	then
-#		echo "Kills match testimg"
-		if [ "$BOUNTYTIME" -lt "$LASTKILLEDTIME" ]
-		then
-#			echo "Bounty posted before kill"					
-#			echo "This is the player balance $PLAYERBALANCE that is recieving the bounty"
-			NEWBALANCE=$(( $PLAYERBALANCE + $BOUNTYAMOUNT ))
-#			echo "This is the new player balance $NEWBALACE"
-			as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
-			as_user "sed -i 's/Bounty=.*/Bounty=0/g' $PLAYERFILE/$2"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - You received $BOUNTYAMOUNT credits in you account from eliminating $2\n'"
-		else
-#			echo "Bounty posted after kill"
-			BOUNTYAFTERKILL=1
-		fi
-	fi
 fi
 }
 
@@ -1400,11 +1182,9 @@ LOGGING=YES #Determines if logging will be active (YES/NO))
 SERVERKEY="00000000000000000000" #Server key found at starmade-servers.com (used for voting rewards)
 #------------------------Logging files----------------------------------------------------------------------------
 RANKCOMMANDS=$STARTERPATH/logs/rankcommands.log #The file that contains all the commands each rank is allowed to use
-SHIPLOG=$STARTERPATH/logs/ship.log #The file that contains a record of all the ships with their sector location and the last person who entered it
 CHATLOG=$STARTERPATH/logs/chat.log #The file that contains a record of all chat messages sent
 BOUNTYLOG=$STARTERPATH/logs/bounty.log #The file that contains all bounty records
 PLAYERFILE=$STARTERPATH/playerfiles #The directory that contains all the individual player files which store player information
-KILLLOG=$STARTERPATH/logs/kill.log #The file with a record of all deaths on the server
 ADMINLOG=$STARTERPATH/logs/admin.log #The file with a record of all admin commands issued
 GUESTBOOK=$STARTERPATH/logs/guestbook.log #The file with a record of all the logouts on the server
 BANKLOG=$STARTERPATH/logs/bank.log #The file that contains all transactions made on the server
@@ -1457,9 +1237,7 @@ as_user "$CREATERANK"
 write_tipfile() {
 CREATETIP="cat > $TIPFILE <<_EOF_
 !HELP is your friend! If you are stuck on a command, use !HELP <Command>
-Ever wanted to be rewarded for voting for the server? Vote now at starmade-servers.org to get voting points! 
-Want to reward people for killing your arch enemy? Try !POSTBOUNTY
-Fancy becoming a bounty hunter? Use !LISTBOUNTY to see all bounties
+Ever wanted to be rewarded for voting for the server? Vote now at starmade-servers.org to get voting points!
 Got too much money? Store some in your bank account with !DEPOSIT
 Need to get some money? Take some out of your bank account with !WITHDRAW
 Stuck in the middle of nowhere but dont want to suicide? Try !CORE
