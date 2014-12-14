@@ -143,7 +143,7 @@ else
     fi
 # Execute the server in a screen while using tee to move the Standard and Error Output to output.log
 	cd $STARTERPATH/StarMade
-	as_user "screen -dmS $SCREENID -m sh -c 'rlwrap java -Xmx$MAXMEMORY -Xms$MINMEMORY -jar $SERVICE -server -port:$PORT 2>&1 | tee /dev/shm/output$PORT.log'"
+	as_user "screen -dmS $SCREENID -m sh -c 'rlwrap java -Xmx$MAXMEMORY -Xms$MINMEMORY -Xincgc -jar $SERVICE -server -port:$PORT 2>&1 | tee /dev/shm/output$PORT.log'"
 # Created a limited loop to see when the server starts
     for LOOPNO in {0..7}
 	do
@@ -1225,11 +1225,11 @@ as_user "$PLAYERCREATE"
 }
 write_rankcommands() {
 CREATERANK="cat > $RANKCOMMANDS <<_EOF_
-Ensign POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE CLEAR FDEPOSIT FWITHDRAW FBALANCE
-Lieutenant POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
-Commander POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
-Captain POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
-Admiral POSTBOUNTY LISTBOUNTY COLLECTBOUNTY DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR RANKSET RANKUSER MYDETAILS THREADDUMP GIVEMETA FDEPOSIT FWITHDRAW FBALANCE
+Ensign DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE CLEAR FDEPOSIT FWITHDRAW FBALANCE
+Lieutenant WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
+Commander DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
+Captain DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
+Admiral DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR RANKSET RANKUSER MYDETAILS THREADDUMP GIVEMETA FDEPOSIT FWITHDRAW FBALANCE
 Admin -ALL-
 _EOF_"
 as_user "$CREATERANK"
@@ -1766,10 +1766,10 @@ function COMMAND_RANKME(){
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !RANKME\n'"
 	else
-			USERRANK=$(sed -n '3p' "$PLAYERFILE/$PLAYERCHATID" | cut -d" " -f2 | cut -d"[" -f2 | cut -d"]" -f1)
-			USERCOMMANDS=$(grep $USERRANK $RANKCOMMANDS | cut -d" " -f2-)
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $1 rank is $USERRANK\n'" 
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Commands available are $USERCOMMANDS\n'" 
+		USERRANK=$(grep Rank "$PLAYERFILE/$PLAYERCHATID" | awk -F "=" '{print $2}')
+		USERCOMMANDS=$(grep $USERRANK $RANKCOMMANDS | cut -d" " -f2-)
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Commands available are $USERCOMMANDS\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $1 rank is $USERRANK\n'"
 	fi
 }
 function COMMAND_RANKLIST(){
@@ -1791,16 +1791,15 @@ function COMMAND_RANKSET(){
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !RANKSET <Name> <Rank>\n'"
 	else
-		if ! grep -q $3 $RANKCOMMANDS
+		if grep -q $3 $RANKCOMMANDS
 		then
 			if [ -e $PLAYERFILE/$2 ]
 			then
-				as_user "sed -i '3s/.*/Rank: \[$3\]/g' $PLAYERFILE/$2"
+				as_user "sed -i 's/Rank=.*/Rank=$3/' $PLAYERFILE/$2"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $2 is now the rank $3\n'"
 			else
-				MakePlayerFile $2
-				as_user "sed -i '3s/.*/Rank: \[$3\]/g' $PLAYERFILE/$2"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Playerfile for $2 does not exist\n'"
 			fi
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $2 is now the rank $3\n'"
 		else
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That rank does not exist\n'"
 		fi
@@ -1815,7 +1814,7 @@ function COMMAND_RANKUSER(){
 	else
 		if [ -e $PLAYERFILE/$2 ]
 		then
-			RANKUSERSTING=$(sed -n '3p' $PLAYERFILE/$2 | cut -d" " -f2)
+			RANKUSERSTING=$(grep Rank "$PLAYERFILE/$PLAYERCHATID" | awk -F "=" '{print $2}')
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $RANKUSERSTING\n'"
 		else
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $2 has no current Rank or does not exist\n'"
