@@ -1922,7 +1922,9 @@ function COMMAND_PING(){
 function COMMAND_LOAD(){
 #A little info command to see how much of the system ressources are gathered from the starmade server process
 #USAGE: !LOAD
-	STAR_LOAD_CPU=$(ps aux | grep java | grep StarMade.jar | grep $PORT | grep -v "rlwrap\|sh" | awk '{print $3}')
+	STAR_RAWLOAD_CPU=$(ps aux | grep java | grep StarMade.jar | grep $PORT | grep -v "rlwrap\|sh" | awk '{print $3}')
+	CPU_CORES=$(grep processor /proc/cpuinfo | wc -l)
+	STAR_LOAD_CPU=$(($STAR_RAWLOAD_CPU/$CPU_CORES))
 	STAR_LOAD_MEM=$(ps aux | grep java | grep StarMade.jar | grep $PORT | grep -v "rlwrap\|sh" | awk '{print $4}')
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 CPU: $STAR_LOAD_CPU% MEM: $STAR_LOAD_MEM%.\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Server load is currently:\n'"
