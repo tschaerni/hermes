@@ -502,7 +502,7 @@ else
 	sm_start
 fi
 }
-sm_screenlog () {
+sm_screenlog() {
 # Start logging in a screen
 if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 then
@@ -524,7 +524,7 @@ then
 	fi
 fi
 }
-sm_status () {
+sm_status() {
 # Check to see is Starmade is running or not
 if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
 then
@@ -1183,7 +1183,6 @@ SERVERKEY="00000000000000000000" #Server key found at starmade-servers.com (used
 #------------------------Logging files----------------------------------------------------------------------------
 RANKCOMMANDS=$STARTERPATH/logs/rankcommands.log #The file that contains all the commands each rank is allowed to use
 CHATLOG=$STARTERPATH/logs/chat.log #The file that contains a record of all chat messages sent
-BOUNTYLOG=$STARTERPATH/logs/bounty.log #The file that contains all bounty records
 PLAYERFILE=$STARTERPATH/playerfiles #The directory that contains all the individual player files which store player information
 ADMINLOG=$STARTERPATH/logs/admin.log #The file with a record of all admin commands issued
 GUESTBOOK=$STARTERPATH/logs/guestbook.log #The file with a record of all the logouts on the server
@@ -1205,8 +1204,6 @@ Rank=$STARTINGRANK
 CreditsInBank=0
 VotingPoints=0
 CurrentVotes=0
-Bounty=0
-BountyPlaced=0
 CurrentIP=0.0.0.0
 CurrentCredits=0
 PlayerFaction=None
@@ -1214,9 +1211,6 @@ PlayerLocation=2,2,2
 PlayerLastLogin=0
 PlayerLastCore=0
 PlayerLastUpdate=0
-PlayerLastKilled=None
-PlayerKilledBy=None
-PlayerKilledtime=0
 PlayerLoggedIn=No
 ChatCount=0
 JustLoggedIn=No
