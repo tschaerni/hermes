@@ -7,6 +7,10 @@
 # These dumps will be in starterpath/logs/threaddump.log and can be submitted to Schema to troubleshoot server crashes
 # !!!You must update starmade.cfg for the Daemon to work on your setup!!!
 # The daemon should be ran from the intended user as it detects and writes the current username to the configuration file
+if [ "$(id -u)" = "0" ] ; then
+	echo -e "It looks like you would run this script as root.\nThis sounds like a really bad idea, doesn't it?\nYou should learn more about UNIX-like system.\nLittle hint: don't run userland scripts as root!"
+	exit 2
+fi
 
 #For development purposes update check can be turned off
 UPDATECHECK=YES
@@ -24,7 +28,7 @@ as_user() {
 if [ "$ME" == "$USERNAME" ] ; then
 	bash -c "$1"
 else
-	su - $USERNAME -c "$1"
+	echo "You are using the wrong user, pleas log in as $USERNAME."
 fi
 }
 
@@ -1201,6 +1205,7 @@ as_user "$CONFIGCREATE"
 write_playerfile() {
 PLAYERCREATE="cat > $PLAYERFILE/$1 <<_EOF_
 Rank=$STARTINGRANK
+Language=en
 CreditsInBank=0
 VotingPoints=0
 CurrentVotes=0
@@ -1382,121 +1387,122 @@ sm_config
 
 # End of regular Functions and the beginning of alias for commands, custom functions, and finally functions that use arguments. 
 case "$1" in
-start)
-	sm_start
-	;;
-status)
-	sm_status
-	;;
-detect)
-	sm_detect
-	;;
-log)
-	sm_log
-	;;
-screenlog)
-	sm_screenlog
-	;;
-stop)
-	sm_stop
-	;;
-ebrake)
-	sm_ebrake
-	;;
-upgrade)
-	sm_upgrade
-	;;
-cronstop)
-	sm_cronstop
-	;;
-cronrestore)
-	sm_cronrestore
-	;;
-cronbackup)
-	sm_cronbackup
-	;;
-check)
-	sm_check
-	;;
-precheck)
-	sm_precheck
-	;;
-install)
+	start)
+		sm_start
+		;;
+	status)
+		sm_status
+		;;
+	detect)
+		sm_detect
+		;;
+	log)
+		sm_log
+		;;
+	screenlog)
+		sm_screenlog
+		;;
+	stop)
+		sm_stop
+		;;
+	ebrake)
+		sm_ebrake
+		;;
+	upgrade)
+		sm_upgrade
+		;;
+	cronstop)
+		sm_cronstop
+		;;
+	cronrestore)
+		sm_cronrestore
+		;;
+	cronbackup)
+		sm_cronbackup
+		;;
+	check)
+		sm_check
+		;;
+	precheck)
+		sm_precheck
+		;;
+	install)
 	sm_install
-	;;
-destroy)
-	sm_destroy
-	;;
-backup)
-	sm_backup
-	;;
-livebackup)
-	sm_livebackup
-	;;
-smsay)
-	sm_say $@
-	;;
-smdo)
-	sm_do $@
-	;;
-setplayermax)
-	sm_setplayermax $@
-	;;
-restore)
-	sm_restore $@
-	;;
-ban)
-	sm_ban $@
-	;;
-dump)
-	sm_dump $@
-	;;
-box)
-	sm_box $@
-	;;
-help)
-	sm_help
-	;;
-reinstall)
-	sm_cronstop
-	sm_stop
-	sm_destroy
-	sm_install
-	sm_cronrestore
-	;;
-restart)
-	sm_stop
-	sm_start
-	;;
-backupstar)
-	sm_cronstop
-	sm_stop
-	sm_backup
-	sm_start
-	sm_cronrestore
-	;;
-upgradestar)
-	sm_cronstop
-	sm_stop
-	sm_upgrade
-	sm_start
-	sm_cronrestore
-	;;
-updatefiles)
-	update_daemon
-	;;
-debug) 
-	echo ${@:2}
-	parselog ${@:2}
-	;;
-*)
-echo "DTSDlite V 0.9.0-alpha"
-echo "Usage: starmaded.sh {help|updatefiles|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|livebackup|backupstar|setplayermax|detect|log|screenlog|check|precheck|ban|dump|box}"
-#******************************************************************************
-exit 1
-;;
+		;;
+	destroy)
+		sm_destroy
+		;;
+	backup)
+		sm_backup
+		;;
+	livebackup)
+		sm_livebackup
+		;;
+	smsay)
+		sm_say $@
+		;;
+	smdo)
+		sm_do $@
+		;;
+	setplayermax)
+		sm_setplayermax $@
+		;;
+	restore)
+		sm_restore $@
+		;;
+	ban)
+		sm_ban $@
+		;;
+	dump)
+		sm_dump $@
+		;;
+	box)
+		sm_box $@
+		;;
+	help)
+		sm_help
+		;;
+	reinstall)
+		sm_cronstop
+		sm_stop
+		sm_destroy
+		sm_install
+		sm_cronrestore
+		;;
+	restart)
+		sm_stop
+		sm_start
+		;;
+	backupstar)
+		sm_cronstop
+		sm_stop
+		sm_backup
+		sm_start
+		sm_cronrestore
+		;;
+	upgradestar)
+		sm_cronstop
+		sm_stop
+		sm_upgrade
+		sm_start
+		sm_cronrestore
+		;;
+	updatefiles)
+		update_daemon
+		;;
+	debug) 
+		echo ${@:2}
+		parselog ${@:2}
+		;;
+	*)
+		echo "DTSDlite V 0.9.0-alpha"
+		echo "Usage: starmaded.sh {help|updatefiles|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|livebackup|backupstar|setplayermax|detect|log|screenlog|check|precheck|ban|dump|box}"
+		exit 1
+		;;
 esac
+
 exit 0
 # Notes:  When executing smdo and smsay enclose in "" and escape any special characters
 # All chat commands require a ! in front of them and the commands are always in caps
+##### EOF #####
 
