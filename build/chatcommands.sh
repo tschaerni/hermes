@@ -1,4 +1,4 @@
-#---------------------------Chat Commands---------------------------------------------
+#---------------------------| Chat Commands |---------------------------------------------
 
 #Example Command
 #In the command system, $1 = Playername , $2 = parameter 1 , $3 = parameter 2 , ect
@@ -46,12 +46,12 @@ function COMMAND_DEPOSIT(){
 			then
 				BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2- |  tr -d ' ')
 #				echo $BALANCECREDITS
-				CREDITSTOTAL=$(grep CurrentCredits $PLAYERFILE/$1 | cut -d= -f2- |  tr -d ' ')  
+				CREDITSTOTAL=$(grep CurrentCredits $PLAYERFILE/$1 | cut -d= -f2- |  tr -d ' ')
 #				echo "Credits in log $CREDITTOTAL"
 #				echo "Total credits are $CREDITSTOTAL on person and $BALANCECREDITS in bank"
 #				echo "Credits to be deposited $2 "
 				if [ "$CREDITSTOTAL" -ge "$2" ]
-				then 
+				then
 #					echo "enough money detected"
 					NEWBALANCE=$(( $2 + $BALANCECREDITS ))
 					NEWCREDITS=$(( $CREDITSTOTAL - $2 ))
@@ -73,9 +73,8 @@ function COMMAND_DEPOSIT(){
 			fi
 		fi
 	fi	
-
-#
 }
+
 function COMMAND_WITHDRAW(){ 
 #Takes money out of your server account and gives it to your player
 #USAGE: !WITHDRAW <Amount>
@@ -116,35 +115,35 @@ function COMMAND_TRANSFER(){
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !TRANSFER <Player> <Amount>\n'"
 	else
 #	echo "Transfer $1 a total of $3 credits"
-	if ! test "$3" -gt 0 2> /dev/null
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You must put in a positive number\n'"
-	else 
-		if [ -e $PLAYERFILE/$2 ] >/dev/null 
+		if ! test "$3" -gt 0 2> /dev/null
 		then
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Connecting to servers\n'"
-			BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2 | tr -d ' ')
-#			echo "Player transferring has $BALANCECREDITS in account"
-			if [ "$3" -lt "$BALANCECREDITS" ]
-			then
-				TRANSFERBALANCE=$(grep CreditsInBank $PLAYERFILE/$2 | cut -d= -f2 | tr -d ' ')
-#				echo "Player receiving has $TRANSFERBALANCE in his account"
-				NEWBALANCETO=$(( $3 + $TRANSFERBALANCE ))
-				NEWBALANCEFROM=$(( $BALANCECREDITS - $3 ))
-#				echo "Changing $1 account to $NEWBALANCEFROM and $2 account to $NEWBALANCETO"
-				as_user "sed -i 's/CreditsInBank=$BALANCECREDITS/CreditsInBank=$NEWBALANCEFROM/g' $PLAYERFILE/$1"
-				as_user "sed -i 's/CreditsInBank=$TRANSFERBALANCE/CreditsInBank=$NEWBALANCETO/g' $PLAYERFILE/$2"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK - You sent $3 credits to $2\n'"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK - Your balance is now $NEWBALANCEFROM\n'"
-				as_user "echo '$1 transferred to $2 in the amount of $3' >> $BANKLOG"
-			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Not enough credits\n'"
-			fi
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You must put in a positive number\n'"
 		else 
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - No account found\n'"
+			if [ -e $PLAYERFILE/$2 ] >/dev/null 
+			then
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Connecting to servers\n'"
+				BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2 | tr -d ' ')
+#				echo "Player transferring has $BALANCECREDITS in account"
+				if [ "$3" -lt "$BALANCECREDITS" ]
+				then
+					TRANSFERBALANCE=$(grep CreditsInBank $PLAYERFILE/$2 | cut -d= -f2 | tr -d ' ')
+#					echo "Player receiving has $TRANSFERBALANCE in his account"
+					NEWBALANCETO=$(( $3 + $TRANSFERBALANCE ))
+					NEWBALANCEFROM=$(( $BALANCECREDITS - $3 ))
+#					echo "Changing $1 account to $NEWBALANCEFROM and $2 account to $NEWBALANCETO"
+					as_user "sed -i 's/CreditsInBank=$BALANCECREDITS/CreditsInBank=$NEWBALANCEFROM/g' $PLAYERFILE/$1"
+					as_user "sed -i 's/CreditsInBank=$TRANSFERBALANCE/CreditsInBank=$NEWBALANCETO/g' $PLAYERFILE/$2"
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK - You sent $3 credits to $2\n'"
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK - Your balance is now $NEWBALANCEFROM\n'"
+					as_user "echo '$1 transferred to $2 in the amount of $3' >> $BANKLOG"
+				else
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Not enough credits\n'"
+				fi
+			else 
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - No account found\n'"
+			fi
 		fi
 	fi
-fi
 }
 function COMMAND_BALANCE(){
 #Tells the player how much money is stored in their server account
@@ -153,8 +152,8 @@ function COMMAND_BALANCE(){
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BALANCE\n'"
 	else
-	BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2 | tr -d ' ')
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You have $BALANCECREDITS credits\n'"
+		BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2 | tr -d ' ')
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You have $BALANCECREDITS credits\n'"
 	fi
 }
 function COMMAND_FDEPOSIT(){
@@ -563,4 +562,4 @@ function COMMAND_THREADDUMP(){
 	fi
 }
 
-#------------------------------Start of daemon script-----------------------------------------
+#------------------------------| EOF chatcommands.sh |-----------------------------------------
