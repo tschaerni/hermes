@@ -1,7 +1,12 @@
 #!/bin/bash
-# Doomsider's and Titanmasher's Daemon Script for Starmade.  init.d script 7/10/13 based off of http://paste.boredomsoft.org/main.php/view/62107887
-# All credits to Andrew for his initial work
-# Scrubbed down version "DTSDlite"
+
+#
+# Hermes, a wrapper for StarMade Servers
+# by tschaerni, robin@cerny.li
+# 
+# Heavy based on the Doomsider's and Titansmasher's Daemon Script for StarMade
+# All credits to Andrew, Reed and Danny for the initial work
+#
 # Version 0.9.0-alpha 30.11.2014
 # Jstack for a dump has been added into the ebrake command to be used with the detect command to see if server is responsive.
 # These dumps will be in starterpath/logs/threaddump.log and can be submitted to Schema to troubleshoot server crashes
@@ -20,209 +25,211 @@ DAEMONPATH=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0
 CONFIGPATH="$(echo $DAEMONPATH | cut -d"." -f1).cfg"
 # Set the starter path to the correct directory.  rev here is used to make the string backwards so that it can be cut at the last forward slash 
 STARTERPATH=$(echo $DAEMONPATH | rev | cut -d"/" -f2- | rev)
-ME=`whoami`
+ME=$(whoami)
 # Grab the current hash from the Daemon
 CURRENTHASH=$(md5sum $DAEMONPATH |  cut -d" " -f1 | tr -d ' ')
+
 # Since this is a Daemon it can be called on from anywhere from just about anything.  This function below ensures the Daemon is using the proper user for the correct privileges
-as_user() {
-if [ "$ME" == "$USERNAME" ] ; then
-	bash -c "$1"
-else
-	echo "You are using the wrong user, pleas log in as $USERNAME."
+# Must be removed
+if [ "$ME" != "$USERNAME" ]
+then
+	echo "You are using the wrong user, please log in as $USERNAME."
 fi
-}
 
 #------------------------------Daemon functions-----------------------------------------
-
-depcheck() {
 # Dependency check for the whole daemon
-
+depcheck() {
 # initialize variable
-NOT_INSTALLED=""
+	NOT_INSTALLED=""
 
 # check for all dep's
 # special thanks to hrnz for this hint
-for i in zip unzip screen rlwrap java jstack ; do
-	if ! which $i > /dev/null; then
-		NOT_INSTALLED="$NOT_INSTALLED $i"
-	fi
-done
+	for i in zip unzip screen rlwrap java jstack ; do
+		if ! which $i > /dev/null; then
+			NOT_INSTALLED="$NOT_INSTALLED $i"
+		fi
+	done
 
 # abort if some of the dep's aren't present
-if [ ! -z "$NOT_INSTALLED" ] ; then
-	echo "Terminate the daemon..."
-	echo "There are some dependencies that aren't present on this system. Please install$NOT_INSTALLED manually"
-	exit 1
-fi
+	if [ ! -z "$NOT_INSTALLED" ] ; then
+		echo "Terminate the Hermes..."
+		echo "There are some dependencies that aren't present on this system. Please install$NOT_INSTALLED manually"
+		echo "Depending on your Linux or BSD Distro, you can install these Package/s with your packagemanager"
+		exit 1
+	fi
 }
 
 sm_config() {
 # Check to see if the config file is in place, if it is then see if an update is needed.  If it does not exist create it and other needed files and directories.
-if [ -e $CONFIGPATH ]
-then
-	if [ "$UPDATECHECK" = "YES" ]
+	if [ -e $CONFIGPATH ]
 	then
-#		echo "Checking HASH to see if Daemon was updated"
-# Grab the hash from the config file and compare it tot he Daemon's hash to see if the Daemon has been updated	
-		CONFIGHASH=$(grep HASH $CONFIGPATH | cut -d= -f2 | tr -d ' ')
-		if [ "$CONFIGHASH" = "$CURRENTHASH" ]
+		if [ "$UPDATECHECK" = "YES" ]
 		then
-#			echo "No update detected, Reading from Source $CONFIGPATH"
-			source $CONFIGPATH
-		else
-			echo "Changes detected updating config files"
+#			echo "Checking HASH to see if Daemon was updated"
+# Grab the hash from the config file and compare it tot he Daemon's hash to see if the Daemon has been updated	
+			CONFIGHASH=$(grep HASH $CONFIGPATH | cut -d= -f2 | tr -d ' ')
+			if [ "$CONFIGHASH" = "$CURRENTHASH" ]
+			then
+#				echo "No update detected, Reading from Source $CONFIGPATH"
+				source $CONFIGPATH
+			else
+				echo "Changes detected updating config files"
 # Source read from another file.  In this case it is the config file containing all the settings for the Daemon
+				source $CONFIGPATH
+				update_daemon
+			fi
+		else
+#			echo "Update check is turned off reading source from config file"
 			source $CONFIGPATH
-			update_daemon
 		fi
 	else
-#		echo "Update check is turned off reading source from config file"
-		source $CONFIGPATH
-	fi
-else
 # If no config file present set the username temporarily to the current user
-	USERNAME=$(whoami)
-	echo "Creating configuration file please edit configuration file (ie: starmade.cfg) or script may not function as intended"
+		USERNAME=$(whoami)
+		echo "Creating configuration file please edit configuration file (ie: starmade.cfg) or script may not function as intended"
 # The following creates the directories and configuration files
-	create_configpath
-	source $CONFIGPATH
-	sm_checkdir
-	create_tipfile
-	create_rankscommands
-	exit
-fi
+		create_configpath
+		source $CONFIGPATH
+		sm_checkdir
+		create_tipfile
+		create_rankscommands
+		exit
+	fi
 }
+
 sm_checkdir() {
 	if [ ! -d "$STARTERPATH/logs" ]
 	then
 		echo "No logs directory detected creating for logging"
-		as_user "mkdir $STARTERPATH/logs"
+		mkdir $STARTERPATH/logs
 	fi
 	if [ ! -d "$PLAYERFILE" ]
 	then
 		echo "No playerfile directory detected creating for logging"
-		as_user "mkdir $PLAYERFILE"
+		mkdir $PLAYERFILE
 	fi
 	if [ ! -d "$FACTIONFILE" ]
 	then
 		echo "No factionfile directory detected creating for logging"
-		as_user "mkdir $FACTIONFILE"
+		mkdir $FACTIONFILE
 	fi
 	if [ ! -d "$STARTERPATH/oldlogs" ]
 	then
 		echo "No oldlogs directory detected creating for logging"
-		as_user "mkdir $STARTERPATH/oldlogs"
+		mkdir $STARTERPATH/oldlogs
 	fi
 }
+
 sm_start() { 
 # Wipe and dead screens to prevent a false positive for a running Screenid
-screen -wipe
+	screen -wipe
 # Check to see if StarMade is installed
-if [ ! -d "$STARTERPATH/StarMade" ]
-then
-	echo "No StarMade directory found.  Either unzip a backup or run install"
-	exit
-fi
-# Check if server is running already by checking for Screenid in the screen list
-if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
-then
-	echo "Tried to start but $SERVICE was already running!"
-else
-	echo "$SERVICE was not running... starting."
-# Check to see if logs and other directories exists and create them if they do not
-	sm_checkdir
-# Make sure screen log is shut down just in case it is still running    
-    if ps aux | grep -v grep | grep $SCREENLOG >/dev/null
-    then
-		echo "Screenlog detected terminating..."
-#		PID=$(ps aux | grep -v grep | grep $SCREENLOG | awk '{print $2}')    
-#		kill $PID
-		as_user "screen -S $SCREENLOG -X quit"
+	if [ ! -d "$STARTERPATH/StarMade" ]
+	then
+		echo "No StarMade directory found.  Either unzip a backup or run install"
+		exit
 	fi
+# Check if server is running already by checking for Screenid in the screen list
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	then
+		echo "Tried to start but $SERVICE was already running!"
+	else
+		echo "$SERVICE was not running... starting."
+# Check to see if logs and other directories exists and create them if they do not
+		sm_checkdir
+# Make sure screen log is shut down just in case it is still running    
+		if ps aux | grep -v grep | grep $SCREENLOG > /dev/null
+		then
+			echo "Screenlog detected terminating..."
+#			PID=$(ps aux | grep -v grep | grep $SCREENLOG | awk '{print $2}')    
+#			kill $PID
+			screen -S $SCREENLOG -X quit
+		fi
 # Check for the output.log and if it is there move it and save it with a time stamp
-    if [ -e /dev/shm/output$PORT.log ] 
-    then
-		MOVELOG=$STARTERPATH/oldlogs/output_$(date '+%b_%d_%Y_%H.%M.%S').log
-		as_user "mv /dev/shm/output$PORT.log $MOVELOG"
-    fi
+		if [ -e /dev/shm/output$PORT.log ] 
+		then
+			MOVELOG=$STARTERPATH/oldlogs/output_$(date '+%b_%d_%Y_%H.%M.%S').log
+			mv /dev/shm/output$PORT.log $MOVELOG
+		fi
 # Execute the server in a screen while using tee to move the Standard and Error Output to output.log
-	cd $STARTERPATH/StarMade
-	as_user "screen -dmS $SCREENID -m sh -c 'rlwrap java -Xmx$MAXMEMORY -Xms$MINMEMORY -Xincgc -jar $SERVICE -server -port:$PORT 2>&1 | tee /dev/shm/output$PORT.log'"
+		cd $STARTERPATH/StarMade
+		screen -dmS $SCREENID -m sh -c 'rlwrap java -Xmx$MAXMEMORY -Xms$MINMEMORY -Xincgc -jar $SERVICE -server -port:$PORT 2>&1 | tee /dev/shm/output$PORT.log'
 # Created a limited loop to see when the server starts
-    for LOOPNO in {0..7}
-	do
-		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
-		then
-			break
-		else
-			echo "Service not running yet... Waiting...."
-			sleep 1
-		fi
-	done
-    if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
-    then
-		echo "$SERVICE is now running."
-		as_user "echo '' > $ONLINELOG"
-# Start sm_screenlog if logging is set to yes
-		if [ "$LOGGING" = "YES" ]
-		then
-			sm_screenlog
-		fi
-    else
-		echo "Could not start $SERVICE."
-    fi  
-fi
-}
-sm_stop() {
-if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
-then
-	echo "$SERVICE is running... stopping."
-# Issue Chat and a command to the server to shutdown
-	as_user "screen -p 0 -S $SCREENID -X eval 'stuff \"/chat Server Going down, be back in a bit.\"\015'"
-	as_user "screen -p 0 -S $SCREENID -X eval 'stuff \"/shutdown 60\"\015'"
-# Give the server a chance to gracefully shutdown if not kill it and then seg fault it if necessary
-	sleep 60
-	for LOOPNO in {0..60}
-	do
-		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
-		then
-			sleep 1
-		else
-			echo $SERVICE took $LOOPNO seconds to close
-			as_user "screen -S $SCREENLOG -X quit"
-			break
-		fi
-	done
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
-    then
-		echo $SERVICE is taking too long to close and may be frozen. Forcing shut down
-		PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')
-		kill $PID
-		for LOOPNO in {0..60}
+		for LOOPNO in {0..7}
 		do
-			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
+			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 			then
-				sleep 1
-			else
-				echo $SERVICE took $(($LOOPNO + 30)) seconds to close, and had to be force shut down
-				as_user "screen -S $SCREENLOG -X quit"
 				break
+			else
+				echo "Service not running yet... Waiting...."
+				sleep 1
 			fi
 		done
 		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
 		then
-			PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')
-			kill -9 $PID
-# This was added in to troubleshoot freezes at the request of Schema			
-			as_user "screen -S $SCREENLOG -X quit"
-			screen -wipe
-			$SERVICE took too long to close. $SERVICE had to be killed
-		fi
+			echo "$SERVICE is now running."
+			echo '' > $ONLINELOG
+# Start sm_screenlog if logging is set to yes
+			if [ "$LOGGING" = "YES" ]
+			then
+				sm_screenlog
+			fi
+		else
+			echo "Could not start $SERVICE."
+		fi  
 	fi
-	else
-		echo "$SERVICE not running"
-  fi
 }
+
+sm_stop() {
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	then
+		echo "$SERVICE is running... stopping."
+# Issue Chat and a command to the server to shutdown
+		screen -p 0 -S $SCREENID -X eval 'stuff \"/chat Server Going down, be back in a bit.\"\015'
+		screen -p 0 -S $SCREENID -X eval 'stuff \"/shutdown 60\"\015'
+# Give the server a chance to gracefully shutdown if not kill it and then seg fault it if necessary
+		sleep 60
+		for LOOPNO in {0..60}
+		do
+			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+			then
+				sleep 1
+			else
+				echo $SERVICE took $LOOPNO seconds to close
+				screen -S $SCREENLOG -X quit
+				break
+			fi
+		done
+		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+		then
+			echo $SERVICE is taking too long to close and may be frozen. Forcing shut down
+			PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')
+			kill $PID
+			for LOOPNO in {0..60}
+			do
+				if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
+				then
+					sleep 1
+				else
+					echo $SERVICE took $(($LOOPNO + 30)) seconds to close, and had to be force shut down
+					screen -S $SCREENLOG -X quit
+					break
+				fi
+			done
+			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
+			then
+				PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')
+				kill -9 $PID
+# This was added in to troubleshoot freezes at the request of Schema			
+				screen -S $SCREENLOG -X quit
+				screen -wipe
+				$SERVICE took too long to close. $SERVICE had to be killed
+			fi
+		fi
+		else
+			echo "$SERVICE not running"
+	fi
+}
+
 sm_backup() {
 	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 	then
@@ -233,77 +240,79 @@ sm_backup() {
 		if [ -d "$BACKUP" ] 
 		then
 			cd $STARTERPATH 
-			as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade"
-			as_user "mv $BACKUPNAME*.zip $BACKUP"
+			zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade
+			mv $BACKUPNAME*.zip $BACKUP
 			echo "Backup complete"
 		else
 			echo "Directory not found attempting to create"
 			cd $STARTERPATH
-			as_user "mkdir $BACKUP"
+			mkdir $BACKUP
 # Create a zip of starmade with time stamp and put it in backup
-			as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade"
-			as_user "mv $BACKUPNAME*.zip $BACKUP"
+			zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade
+			mv $BACKUPNAME*.zip $BACKUP
 			echo "Backup complete" 
 		fi
 	fi
 }
+
 sm_livebackup() {
 # WARNING! Live Backup make only a Backup of the Database! Because, some other dirs and files are in use
-if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
-then
-	if [ -d "$BACKUP" ]
-	then
-		cd $STARTERPATH
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/chat Starting live-backup\n'"
-		echo "Starting live-backup"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
-		sleep 10
-# /delay_save prevents saving of the Server
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 3600\n'"
-		sleep 5
-# Create a zip of starmade with time stamp and put it in backup
-		as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade/server-database"
-		if [ "$?" == "0" ]
-		then
-			as_user "mv $BACKUPNAME*.zip $BACKUP"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup complete and successfull\n'"
-			echo "live-backup complete and successfull"
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup exited with error. Please contact the admins.\n'"
-			echo "live-backup exited with error. Please check"
-		fi
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 1\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
-	else
-		echo "Directory not found attempting to create"
-		cd $STARTERPATH
-		as_user "mkdir $BACKUP"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/chat Starting live-backup\n'"
-		echo "Starting live-backup"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
-		sleep 10
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 3600\n'"
-		sleep 5
-		as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade/server-database"
-		if [ "$?" == "0" ]
-		then
-			as_user "mv $BACKUPNAME*.zip $BACKUP"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup complete and successfull\n'"
-			echo "live-backup complete and successfull"
-		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup exited with error. Please contact the admins.\n'"
-			echo "live-backup exited with error. Please check"
-		fi
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 1\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
-	fi
-else
-	echo "$SERVICE isn't running, make a regular backup"
-	sm_backup
-fi
-}
-sm_destroy() {
 	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	then
+		if [ -d "$BACKUP" ]
+		then
+			cd $STARTERPATH
+			screen -p 0 -S $SCREENID -X stuff $'/chat Starting live-backup\n'
+			echo "Starting live-backup"
+			screen -p 0 -S $SCREENID -X stuff $'/force_save\n'
+			sleep 10
+# /delay_save prevents saving of the Server
+			screen -p 0 -S $SCREENID -X stuff $'/delay_save 3600\n'
+			sleep 5
+# Create a zip of starmade with time stamp and put it in backup
+			zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade/server-database
+			if [ "$?" == "0" ]
+			then
+				mv $BACKUPNAME*.zip $BACKUP
+				screen -p 0 -S $SCREENID -X stuff $'/chat live-backup complete and successfull\n'
+				echo "live-backup complete and successfull"
+			else
+				screen -p 0 -S $SCREENID -X stuff $'/chat live-backup exited with error. Please contact the admins.\n'
+				echo "live-backup exited with error. Please check"
+			fi
+			screen -p 0 -S $SCREENID -X stuff $'/delay_save 1\n'
+			screen -p 0 -S $SCREENID -X stuff $'/force_save\n'
+		else
+			echo "Directory not found attempting to create"
+			cd $STARTERPATH
+			mkdir $BACKUP
+			screen -p 0 -S $SCREENID -X stuff $'/chat Starting live-backup\n'
+			echo "Starting live-backup"
+			screen -p 0 -S $SCREENID -X stuff $'/force_save\n'
+			sleep 10
+			screen -p 0 -S $SCREENID -X stuff $'/delay_save 3600\n'
+			sleep 5
+			zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade/server-database
+			if [ "$?" == "0" ]
+			then
+				mv $BACKUPNAME*.zip $BACKUP
+				screen -p 0 -S $SCREENID -X stuff $'/chat live-backup complete and successfull\n'
+				echo "live-backup complete and successfull"
+			else
+				screen -p 0 -S $SCREENID -X stuff $'/chat live-backup exited with error. Please contact the admins.\n'
+				echo "live-backup exited with error. Please check"
+			fi
+			screen -p 0 -S $SCREENID -X stuff $'/delay_save 1\n'
+			screen -p 0 -S $SCREENID -X stuff $'/force_save\n'
+		fi
+	else
+		echo "$SERVICE isn't running, make a regular backup"
+		sm_backup
+	fi
+}
+
+sm_destroy() {
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 	then
 		echo "$SERVICE is running! Will not start destroy."
 	else
@@ -311,12 +320,13 @@ sm_destroy() {
 # Change to root directory of starmade
 		cd $STARTERPATH
 # Erase StarMade
-		as_user "rm -r StarMade"
+		rm -r StarMade
 		echo "Erase complete"
 	fi
 }
+
 sm_install() {
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 	then
 		echo "$SERVICE is running! Will not start install"
 	else
@@ -326,18 +336,19 @@ sm_install() {
 		then
 			echo "Starter file found running install"
 			cd $STARTERPATH
-			as_user "java -jar StarMade-Starter.jar -nogui"
+			java -jar StarMade-Starter.jar -nogui
 		else
 			echo "Starter file not found downloading and running install"
 # Grab the starmade starter file for Linux - This location may need to be updated in the future
 			cd $STARTERPATH
-			as_user "wget http://files.star-made.org/StarMade-Starter.jar"
+			wget http://files.star-made.org/StarMade-Starter.jar
 # Execute the starters update routine for a headless server
-			as_user "java -jar StarMade-Starter.jar -nogui"
+			java -jar StarMade-Starter.jar -nogui
 		fi	
 	fi
 	echo "Install Complete"
 }
+
 sm_upgrade() {
 	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
 	then
@@ -346,34 +357,38 @@ sm_upgrade() {
 		echo "Upgrading Starmade"
 		cd $STARTERPATH
 # Execute the starters update routine for a headless server
-		as_user "java -jar StarMade-Starter.jar -nogui"
+		java -jar StarMade-Starter.jar -nogui
 	fi
 	echo "Upgrade Complete"	
 }
+
 sm_cronstop() {
 # Stop Cronjobs to prevent things from running during maintenance
-	as_user "crontab -r"
+	crontab -r
 	echo "Cronjobs stopped"
 }
+
 sm_cronrestore() {
 # Restore Cronjobs to original state
 	cd $STARTERPATH
-	as_user "crontab < cronbackup.dat"
+	crontab < cronbackup.dat
 	echo "Cronjobs restored"
 }
+
 sm_cronbackup() {
 # Backup Cronjobs 
 	cd $STARTERPATH
-	as_user "crontab -l > cronbackup.dat"
+	crontab -l > cronbackup.dat
 	echo "Cronjobs backed up"
 }
+
 sm_precheck() {
 # A big thanks to MichaelSeph for pointing out the code and Schema for writing it.  Without this help this feature
 # would have taken far longer to add.
 # Check for latest PRE version and install it 
-	as_user "wget -q --user dev --password dev -O tmp.html http://files.star-made.org/build/pre/"
-	RELEASE_URL=$(cat tmp.html | grep -o -E "[^<>]*?.zip" | tail -1)
-	as_user "rm tmp.html"
+	wget -q --user dev --password dev -O /tmp/tmp.html http://files.star-made.org/build/pre/
+	RELEASE_URL=$(cat /tmp/tmp.html | grep -o -E "[^<>]*?.zip" | tail -1)
+	rm /tmp/tmp.html
 # echo $RELEASE_URL
 	SNEWVERSION1=$(echo $RELEASE_URL | cut -d_ -f2)
 # echo $SNEWVERSION1
@@ -390,24 +405,23 @@ sm_precheck() {
 		echo "Newer Version Detected"
 		cd $STARTERPATH
 # At this point the cronjobs and server will need to be stopped and a backup made just in case
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/chat New version detected going down for backup and upgrade\n'"
+		screen -p 0 -S $SCREENID -X stuff $'/chat New version detected going down for backup and upgrade\n'
 		sm_stop
 		sm_backup
-		as_user "wget --user dev --password dev http://files.star-made.org/build/pre/$RELEASE_URL"
-		as_user "unzip -o $RELEASE_URL -d $STARTERPATH/StarMade"
-		as_user "rm installed-version"
-		as_user "touch $STARTERPATH/installed-version"
-		echo $RELEASE_URL >> $STARTERPATH/installed-version
+		wget --user dev --password dev http://files.star-made.org/build/pre/$RELEASE_URL
+		unzip -o $RELEASE_URL -d $STARTERPATH/StarMade
+		echo $RELEASE_URL > $STARTERPATH/installed-version
 # At this point the server should started and cronjobs restored
 	else
 		echo "No new version detected"
 	fi
 }
+
 sm_check() {
 # Check for latest version and install it 
-	as_user "wget -q -O tmp.html http://files.star-made.org/build/"
-	RELEASE_URL=$(cat tmp.html | grep -o -E "[^<>]*?.zip" | tail -1)
-	as_user "rm tmp.html"
+	wget -q -O /tmp/tmp.html http://files.star-made.org/build/
+	RELEASE_URL=$(cat /temp/tmp.html | grep -o -E "[^<>]*?.zip" | tail -1)
+	rm /tmp/tmp.html
 # echo $RELEASE_URL
 	SNEWVERSION1=$(echo $RELEASE_URL | cut -d_ -f2)
 # echo $SNEWVERSION1
@@ -424,39 +438,38 @@ sm_check() {
 		echo "Newer Version Detected"
 		cd $STARTERPATH
 # At this point the cronjobs and server will need to be stopped and a backup made just in case
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/chat New version detected going down for backup and upgrade\n'"
+		screen -p 0 -S $SCREENID -X stuff $'/chat New version detected going down for backup and upgrade\n'
 		sm_stop
 		sm_backup
-		as_user "wget http://files.star-made.org/build/$RELEASE_URL"
-		as_user "unzip -o $RELEASE_URL -d $STARTERPATH/StarMade"
-		as_user "rm installed-version"
-		as_user "touch $STARTERPATH/installed-version"
-		echo $RELEASE_URL >> $STARTERPATH/installed-version
+		wget http://files.star-made.org/build/$RELEASE_URL
+		unzip -o $RELEASE_URL -d $STARTERPATH/StarMade
+		echo $RELEASE_URL > $STARTERPATH/installed-version
 # At this point the server should started and cronjobs restored
 	else
 		echo "No new version detected"
 	fi
 }
+
 sm_ebrake() {
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 	then
-		PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep -v rlwrap | grep port:$PORT | awk '{print $2}')    
+		PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep -v rlwrap | grep port:$PORT | awk '{print $2}')
 		jstack $PID >> $STARTERPATH/logs/threaddump.log
 		kill $PID
 # Give server a chance to gracefully shut down
 		for LOOPNO in {0..30}
 		do
-			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 			then
 				sleep 1
 			else
 				echo $SERVICE closed after $LOOPNO seconds
-				as_user "screen -S $SCREENLOG -X quit"
+				screen -S $SCREENLOG -X quit
 				break
 			fi
 		done
 # Check to make sure server is shut down if not kill it with a seg fault.
-		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 		then
 			PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v rlwrap | grep -v tee | grep port:$PORT | awk '{print $2}')
 # This was added in to troubleshoot freezes at the request of Schema
@@ -467,31 +480,32 @@ sm_ebrake() {
 			jstack $PID >> $STARTERPATH/logs/threaddump3.log
 			kill -9 $PID
 			echo $SERVICE has to be forcibly closed. A thread dump has been taken and is saved at $STARTERPATH/logs/threaddump.log and should be sent to schema.
-			as_user "screen -S $SCREENLOG -X quit"
+			screen -S $SCREENLOG -X quit
 			screen -wipe
 		fi
 	else
 		echo "$SERVICE not running"
 	fi
 }
+
 sm_detect() {
 # Special thanks to Fire219 for providing the means to test this script.  Appreciation to Titansmasher for collaboration.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 	then
 # Add in a routine to check for STDERR: [SQL] Fetching connection 
 # Send the curent time as a serverwide message
-		if (tail -5 /dev/shm/output$PORT.log | grep "Fetching connection" >/dev/null)
+		if (tail -5 /dev/shm/output$PORT.log | grep "Fetching connection" > /dev/null)
 		then 
 			echo "Database Repairing itself"
 		else
 # Set the current to Unix time which is number of seconds since Unix was created.  Next send this as a PM to Unix time which will cause the console to error back Unix time.
 			CURRENTTIME=$(date +%s)
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $CURRENTTIME testing\n'"   
+			screen -p 0 -S $SCREENID -X stuff $'/pm $CURRENTTIME testing\n'
 			echo "Unix time is $CURRENTTIME"
 			sleep 10
 # Check output.log to see if message was recieved by server.  The tail variable may need to be adjusted so that the
 # log does not generate more lines that it looks back into the log
-			if tac /dev/shm/output$PORT.log | grep -m 1 "$CURRENTTIME" >/dev/null
+			if tac /dev/shm/output$PORT.log | grep -m 1 "$CURRENTTIME" > /dev/null
 			then
 				echo "Server is responding"
 				echo "Server time variable is $CURRENTTIME"
@@ -506,72 +520,77 @@ sm_detect() {
 		sm_start
 	fi
 }
+
 sm_screenlog() {
 # Start logging in a screen
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 	then
 		echo "Starmade is running checking for logging."
 # Make sure smlog is not already running
-		if ps aux | grep $SCREENLOG | grep -v grep >/dev/null
+		if ps aux | grep $SCREENLOG | grep -v grep > /dev/null
 		then
 			echo "Logging is already running"
 		else
 			echo "Starting Logging" 
 # Check to see if existing screen log exists and if so move and rename it
-			if [ -e $STARTERPATH/logs/screen.log ] 
+			if [ -e $STARTERPATH/logs/screen.log ]
 			then
 				MOVELOG=$STARTERPATH/oldlogs/screen_$(date '+%b_%d_%Y_%H.%M.%S').log
-				as_user "mv $STARTERPATH/logs/screen.log $MOVELOG"
+				mv $STARTERPATH/logs/screen.log $MOVELOG
 			fi
 			STARTLOG="$DAEMONPATH log"
-			as_user "screen -dmS $SCREENLOG -m sh -c '$STARTLOG 2>&1 | tee $STARTERPATH/logs/screen.log'"
+			screen -dmS $SCREENLOG -m sh -c '$STARTLOG 2>&1 | tee $STARTERPATH/logs/screen.log'
 		fi
 	fi
 }
+
 sm_status() {
 # Check to see is Starmade is running or not
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null 
 	then
 		echo "Starmade Server is running."
 	else
 		echo "Starmade Server is NOT running."
 	fi
 }
+
 sm_say() {
 # Check to see if server is running and if so pass the second argument as a chat command to server.  Use quotes if you use spaces.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 	then
 		SAYSTRING=$(echo $@ | cut -d" " -f2- | tr -d '<>()!@#$%^&*/[]{},\\' | sed "s/'//g" | sed "s/\"//g")
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/chat $SAYSTRING\n'"
+		screen -p 0 -S $SCREENID -X stuff $'/chat $SAYSTRING\n'
 	else
 		echo "Starmade is not running!"
 	fi
 }
+
 sm_do() {
 # Check for starmade running the passes second argument as a command on server.  Use quotations if you have spaces in command.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 	then
 		DOSTRING=$(echo $@ | cut -d" " -f2- | tr -d '<>()!@#$%^&*/[]{},\\' | sed "s/'//g" | sed "s/\"//g")
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/$2\n'"
+		screen -p 0 -S $SCREENID -X stuff $'/$2\n'
 	else
 		echo "Starmade is not running!"
 	fi
 }
+
 sm_restore() {
 # Checks for server running and then restores the given backup zip file.  It pulls from the backup directory so no path is needed.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 	then
 		echo "Starmade Server is running."
 		else
 		cd $BACKUP
-		as_user "unzip -o $2 -d $STARTERPATH"
+		unzip -o $2 -d $STARTERPATH
 		echo "Server $2 is restored"
 	fi
 }
 
 sm_dump() {
 # Check to see if server is running and if so pass the second argument as a chat command to server.  Use quotes if you use spaces.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
 	then
 		if [ "$#" -ne "2" ] 
 		then
@@ -591,6 +610,7 @@ sm_dump() {
 		echo "$SERVICE not running"
 	fi
 }
+
 sm_help() {
 	echo "updatefiles - Updates all stored files to the latest format, if a change is needed"
 	echo "start - Starts the server"
@@ -619,6 +639,7 @@ sm_help() {
 	echo "dump - Do a thread dump with number of times and delay between them"
 	echo "box - Send a colored message box.  Usage: box <red|blue|green> <playername (optional)> <message>"
 }
+
 sm_log() {
 #Saves the PID of this function being run
 	SM_LOG_PID=$$
@@ -631,7 +652,7 @@ sm_log() {
 # Create the playerfile folder if it doesnt exist
 	mkdir -p $PLAYERFILE
 # This while loop runs as long as starmade stays running    
-	while (ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep -v rlwrap | grep port:$PORT >/dev/null)
+	while (ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep -v rlwrap | grep port:$PORT > /dev/null)
 	do
 # A tiny sleep to prevent cpu burning overhead
 		sleep 0.1
@@ -713,6 +734,7 @@ sm_log() {
 		done
 	done
 }
+
 parselog(){
 	SEARCHLOGIN="[SERVER][LOGIN] login received. returning login info for RegisteredClient: "
 	SEARCHREMOVE="[SERVER][DISCONNECT] Client 'RegisteredClient:"
@@ -755,6 +777,7 @@ parselog(){
 		;;
 	esac
 }
+
 sm_box() {
 	PRECEIVE=$(ls $PLAYERFILE)
 #	echo "Players $PRECEIVE"
@@ -766,13 +789,13 @@ sm_box() {
 		MESSAGE=${@:4}
 		case "$2" in
 			*"green"*) 
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_to info $3 \'$MESSAGE\'\n'"
+				screen -p 0 -S $SCREENID -X stuff $'/server_message_to info $3 \'$MESSAGE\'\n'
 			;;
 			*"blue"*)
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_to warning $3 \'$MESSAGE\'\n'"
+				screen -p 0 -S $SCREENID -X stuff $'/server_message_to warning $3 \'$MESSAGE\'\n'
 			;;
 			*"red"*) 
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_to error $3 \'$MESSAGE\'\n'"
+				screen -p 0 -S $SCREENID -X stuff $'/server_message_to error $3 \'$MESSAGE\'\n'
 			;;
 			*) 
 			;;
@@ -782,13 +805,13 @@ sm_box() {
 		MESSAGE=${@:3}
 		case "$2" in
 			*"green"*) 
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_broadcast info \'$MESSAGE\'\n'"
+				screen -p 0 -S $SCREENID -X stuff $'/server_message_broadcast info \'$MESSAGE\'\n'
 			;;
 			*"blue"*)
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_broadcast warning \'$MESSAGE\'\n'"
+				screen -p 0 -S $SCREENID -X stuff $'/server_message_broadcast warning \'$MESSAGE\'\n'
 			;;
 			*"red"*) 
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_broadcast error \'$MESSAGE\'\n'"
+				screen -p 0 -S $SCREENID -X stuff $'/server_message_broadcast error \'$MESSAGE\'\n'
 			;;
 			*) 
 			;;
@@ -801,9 +824,9 @@ log_playerinfo() {
 #
 #echo "$1 is the player name"
 	create_playerfile $1
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/player_info $1\n'"
+	screen -p 0 -S $SCREENID -X stuff $'/player_info $1\n'
 	sleep 2
-	if tac /dev/shm/output$PORT.log | grep -m 1 -A 10 "Name: $1" >/dev/null
+	if tac /dev/shm/output$PORT.log | grep -m 1 -A 10 "Name: $1" > /dev/null
 	then
 		OLD_IFS=$IFS
 		IFS=$'\n'
@@ -828,12 +851,12 @@ log_playerinfo() {
 #		echo "Player sector is $PSECTOR"
 		PLASTUPDATE=$(date +%s)
 #		echo "Player file last update is $PLASTUPDATE"
-		as_user "sed -i 's/CurrentIP=.*/CurrentIP=$PIP/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/CurrentCredits=.*/CurrentCredits=$PCREDITS/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerFaction=.*/PlayerFaction=$PFACTION/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerLocation=.*/PlayerLocation=$PSECTOR/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerLastUpdate=.*/PlayerLastUpdate=$PLASTUPDATE/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerLoggedIn=.*/PlayerLoggedIn=Yes/g' $PLAYERFILE/$1"
+		sed -i 's/CurrentIP=.*/CurrentIP=$PIP/g' $PLAYERFILE/$1
+		sed -i 's/CurrentCredits=.*/CurrentCredits=$PCREDITS/g' $PLAYERFILE/$1
+		sed -i 's/PlayerFaction=.*/PlayerFaction=$PFACTION/g' $PLAYERFILE/$1
+		sed -i 's/PlayerLocation=.*/PlayerLocation=$PSECTOR/g' $PLAYERFILE/$1
+		sed -i 's/PlayerLastUpdate=.*/PlayerLastUpdate=$PLASTUPDATE/g' $PLAYERFILE/$1
+		sed -i 's/PlayerLoggedIn=.*/PlayerLoggedIn=Yes/g' $PLAYERFILE/$1
 	fi
 }
 
@@ -846,7 +869,7 @@ log_chatlogging() {
 		if echo $CHATGREP | grep ":" >/dev/null
 		then
 # If the chat is a whisper then
-			if echo $CHATGREP | grep "\[WISPER\]" >/dev/null
+			if echo $CHATGREP | grep "\[WISPER\]" > /dev/null
 			then
 # Set variable for the person who is whispering
 				PWHISPERED=$(echo $CHATGREP | cut -d\] -f4 | cut -d: -f1 | tr -d ' ')
@@ -855,10 +878,10 @@ log_chatlogging() {
 				PLAYERCHAT=$(echo $CHATGREP | cut -d\] -f6-)
 # Format the whisper mesage for the log
 				WHISPERMESSAGE="$(date '+%b_%d_%Y_%H.%M.%S') - \($PWHISPERER\) whispered to \($PWHISPERED\) '$PLAYERCHAT'"
-				as_user "echo $WHISPERMESSAGE >> $CHATLOG"
+				echo $WHISPERMESSAGE >> $CHATLOG
 # If not a whiper then
 			fi
-			if echo $CHATGREP | grep Server >/dev/null
+			if echo $CHATGREP | grep Server > /dev/null
 			then
 #				echo "CHAT DETECTED - $CHATGREP"
 # Set variable for player name
@@ -867,7 +890,7 @@ log_chatlogging() {
 				PLAYERCHAT=$(echo $CHATGREP | cut -d":" -f2- | tr -d \' | tr -d \")
 # Format the chat message to be written for the chat log
 				CHATMESSAGE="$(date '+%b_%d_%Y_%H.%M.%S') - \($PLAYERCHATID\)'$PLAYERCHAT'"  
-				as_user "echo $CHATMESSAGE >> $CHATLOG"	
+				echo $CHATMESSAGE >> $CHATLOG
 			fi
 		fi
 	fi
@@ -935,11 +958,11 @@ log_chatcommands() {
 #					$2+ = parameter from command
 				else
 #					echo Disallowed
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm ${COMMANDANDPARAMETERS[1]} You do not have sufficient permission to use that command!\n'"
+					screen -p 0 -S $SCREENID -X stuff $'/pm ${COMMANDANDPARAMETERS[1]} You do not have sufficient permission to use that command!\n'
 				fi
 			else
 #				echo Doesnt exist
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm ${COMMANDANDPARAMETERS[1]} Unrecognized command. Please try again or use !HELP\n'"
+				screen -p 0 -S $SCREENID -X stuff $'/pm ${COMMANDANDPARAMETERS[1]} Unrecognized command. Please try again or use !HELP\n'
 			fi
 		fi
 	fi
@@ -950,7 +973,7 @@ log_admincommand() {
 	then
 # Format the admin command string to be written to the admin log
 		ADMINSTR="$@ $(date '+%b_%d_%Y_%H.%M.%S')"
-		as_user "echo '$ADMINSTR' >> $ADMINLOG"
+		echo '$ADMINSTR' >> $ADMINLOG
 	fi
 }
 
@@ -966,11 +989,11 @@ log_playerlogout() {
 		log_playerinfo $LOGOUTPLAYER
 	fi
 # Use sed to change the playerfile PlayerLoggedIn to No
-	as_user "sed -i 's/PlayerLoggedIn=Yes/PlayerLoggedIn=No/g' $PLAYERFILE/$LOGOUTPLAYER"
+	sed -i 's/PlayerLoggedIn=Yes/PlayerLoggedIn=No/g' $PLAYERFILE/$LOGOUTPLAYER
 # Echo current string and array to the guestboot as a log off
 	LOGOFF="$LOGOUTPLAYER logged off at $(date '+%b_%d_%Y_%H.%M.%S') server time"
-	as_user "echo $LOGOFF >> $GUESTBOOK"
-	as_user "sed -i '/$LOGOUTPLAYER/d' $ONLINELOG"
+	echo $LOGOFF >> $GUESTBOOK
+	sed -i '/$LOGOUTPLAYER/d' $ONLINELOG
 }
 
 log_sectorchange() {
@@ -979,9 +1002,9 @@ log_sectorchange() {
 	SCCHNGTR=$@   
 # If a sector change took place with a character then
 #----------------------------PLAYER---------------------------------------------
-	if (echo "$SCCHNGTR" | grep "[DOCKING]" >/dev/null)
+	if (echo "$SCCHNGTR" | grep "[DOCKING]" > /dev/null)
 	then
-		if (echo "$SCCHNGTR" | grep PlayerCharacter >/dev/null)
+		if (echo "$SCCHNGTR" | grep PlayerCharacter > /dev/null)
 		then 
 	# Set variable for player name
 			PLAYERSCSOLO=$(echo "$SCCHNGTR" | cut -d_ -f3- | cut -d\) -f1)
@@ -997,10 +1020,10 @@ log_sectorchange() {
 			PLOLDSCOTYPE=$(grep PlayerControllingType $PLAYERFILE/$PLAYERSCSOLO | cut -d= -f2)
 			PLOLDSCCHANGE=$(grep PlayerLocation $PLAYERFILE/$PLAYERSCSOLO | cut -d= -f2 | tr -d ' ')
 	#		echo "This was the last object player was in $PLOLDSCOTYPE"
-			as_user "sed -i 's/PlayerLocation=$PLOLDSCCHANGE/PlayerLocation=$PLAYERSCSOLOCHANGE/g' $PLAYERFILE/$PLAYERSCSOLO"
+			sed -i 's/PlayerLocation=$PLOLDSCCHANGE/PlayerLocation=$PLAYERSCSOLOCHANGE/g' $PLAYERFILE/$PLAYERSCSOLO
 		#----------------------------SHIP---------------------------------------------
 		# If there is a sector change with a ship
-		elif (echo "$SCCHNGTR" | grep Ship >/dev/null)
+		elif (echo "$SCCHNGTR" | grep Ship > /dev/null)
 		then
 		#	echo "Player change sector with ship"
 		# Player name from the change sector string
@@ -1023,7 +1046,7 @@ log_sectorchange() {
 		# New sector changed to from the sector sting
 			OLDSHIPSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCSHIP | cut -d= -f2 | tr -d ' ')
 		#	echo "This is the old sector $OLDSHIPSC"
-			as_user "sed -i 's/PlayerLocation=$OLDSHIPSC/PlayerLocation=$PLAYERSCSHIPCHANGE/g' $PLAYERFILE/$PLAYERSCSHIP"
+			sed -i 's/PlayerLocation=$OLDSHIPSC/PlayerLocation=$PLAYERSCSHIPCHANGE/g' $PLAYERFILE/$PLAYERSCSHIP
 	#----------------------------STATION---------------------------------------------
 	# If there is a sector change with a station
 		elif (echo "$SCCHNGTR" | grep SpaceStation >/dev/null)
@@ -1049,7 +1072,7 @@ log_sectorchange() {
 	# New sector changed to from the sector sting
 			OLDSTATIONSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCSTATION | cut -d= -f2 | tr -d ' ')
 	#		echo "This is the old sector $OLDSTATIONSC"
-			as_user "sed -i 's/PlayerLocation=$OLDSTATIONSC/PlayerLocation=$PLAYERSCSTATIONCHANGE/g' $PLAYERFILE/$PLAYERSCSTATION"
+			sed -i 's/PlayerLocation=$OLDSTATIONSC/PlayerLocation=$PLAYERSCSTATIONCHANGE/g' $PLAYERFILE/$PLAYERSCSTATION
 	#----------------------------PLANET---------------------------------------------
 	# If there is a sector change with a planet
 		elif (echo "$SCCHNGTR" | grep Planet >/dev/null)
@@ -1075,7 +1098,7 @@ log_sectorchange() {
 	# New sector changed to from the sector sting
 			OLDPLANETSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCPLANET | cut -d= -f2 | tr -d ' ')
 	#		echo "This is the old sector $OLDPLANETSC"
-			as_user "sed -i 's/PlayerLocation=$OLDPLANETSC/PlayerLocation=$PLAYERSCPLANETCHANGE/g' $PLAYERFILE/$PLAYERSCPLANET"
+			sed -i 's/PlayerLocation=$OLDPLANETSC/PlayerLocation=$PLAYERSCPLANETCHANGE/g' $PLAYERFILE/$PLAYERSCPLANET
 		fi
 	fi
 }
@@ -1085,13 +1108,13 @@ log_on_login() {
 #	echo "$LOGINPLAYER logged in"
 	create_playerfile $LOGINPLAYER
 	DATE=$(date '+%b_%d_%Y_%H.%M.%S')
-	as_user "sed -i 's/JustLoggedIn=.*/JustLoggedIn=Yes/g' $PLAYERFILE/$LOGINPLAYER"
-	as_user "sed -i 's/ChatCount=.*/ChatCount=0/g' $PLAYERFILE/$LOGINPLAYER"
-	as_user "sed -i 's/SwearCount=.*/SwearCount=0/g' $PLAYERFILE/$LOGINPLAYER"
-	as_user "sed -i 's/PlayerLastLogin=.*/PlayerLastLogin=$DATE/g' $PLAYERFILE/$LOGINPLAYER"
+	sed -i 's/JustLoggedIn=.*/JustLoggedIn=Yes/g' $PLAYERFILE/$LOGINPLAYER
+	sed -i 's/ChatCount=.*/ChatCount=0/g' $PLAYERFILE/$LOGINPLAYER
+	sed -i 's/SwearCount=.*/SwearCount=0/g' $PLAYERFILE/$LOGINPLAYER
+	sed -i 's/PlayerLastLogin=.*/PlayerLastLogin=$DATE/g' $PLAYERFILE/$LOGINPLAYER
 	LOGON="$LOGINPLAYER logged on at $(date '+%b_%d_%Y_%H.%M.%S') server time"
-	as_user "echo $LOGON >> $GUESTBOOK"
-	as_user "echo $LOGINPLAYER >> $ONLINELOG"
+	echo $LOGON >> $GUESTBOOK
+	echo $LOGINPLAYER >> $ONLINELOG
 }
 
 log_initstring() {
@@ -1102,8 +1125,8 @@ log_initstring() {
 	then
 		LOGINMESSAGE="Welcome to the server $INITPLAYER! Type !HELP for chat commands"
 	# A chat message that is displayed whenever a player logs in
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'"
-		as_user "sed -i 's/JustLoggedIn=.*/JustLoggedIn=No/g' $PLAYERFILE/$INITPLAYER"
+		screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'
+		sed -i 's/JustLoggedIn=.*/JustLoggedIn=No/g' $PLAYERFILE/$INITPLAYER
 	fi
 }
 
@@ -1114,7 +1137,7 @@ randomhelptips(){
 	while [ -e /proc/$SM_LOG_PID ]
 	do
 		RANDLINE=$(($RANDOM % $(wc -l < "$TIPFILE") + 1))
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/chat $(sed -n ${RANDLINE}p $TIPFILE)\n'"
+		screen -p 0 -S $SCREENID -X stuff $'/chat $(sed -n ${RANDLINE}p $TIPFILE)\n'
 		sleep $TIPINTERVAL
 	done
 }
@@ -1146,11 +1169,11 @@ autovoteretrieval(){
 							ADDVOTES=$TOTALVOTES
 						fi
 						VOTESSAVED=$(($VOTINGPOINTS+$ADDVOTES))
-						as_user "sed -i 's/VotingPoints=.*/VotingPoints=$VOTESSAVED/g' $PLAYERFILE/$PLAYER"
-						as_user "sed -i 's/CurrentVotes=.*/CurrentVotes=$TOTALVOTES/g' $PLAYERFILE/$PLAYER"
+						sed -i 's/VotingPoints=.*/VotingPoints=$VOTESSAVED/g' $PLAYERFILE/$PLAYER
+						sed -i 's/CurrentVotes=.*/CurrentVotes=$TOTALVOTES/g' $PLAYERFILE/$PLAYER
 						if [ $ADDVOTES -gt 0 ]
 						then
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/chat $PLAYER just got $ADDVOTES point(s) for voting! You can get voting points too by going to starmade-servers.com!\n'"
+							screen -p 0 -S $SCREENID -X stuff $'/chat $PLAYER just got $ADDVOTES point(s) for voting! You can get voting points too by going to starmade-servers.com!\n'
 						fi
 					fi
 				done
@@ -1171,7 +1194,7 @@ write_factionfile() {
 CREATEFACTION="cat > $FACTIONFILE/$1 <<_EOF_
 CreditsInBank=0
 _EOF_"
-	as_user "$CREATEFACTION"
+	$CREATEFACTION
 }
 
 write_configpath() {
@@ -1216,7 +1239,7 @@ CREDITSPERVOTE=1000000 # The number of credits a player gets per voting point.
 TIPINTERVAL=600 #Number of seconds between each tip being shown
 STARTINGRANK=Ensign #The initial rank players recieve when they log in for the first time. Can be edited.
 _EOF_"
-	as_user "$CONFIGCREATE"
+	$CONFIGCREATE
 }
 
 write_playerfile() {
@@ -1237,7 +1260,7 @@ PlayerLoggedIn=No
 ChatCount=0
 JustLoggedIn=No
 _EOF_"
-	as_user "$PLAYERCREATE"
+	$PLAYERCREATE
 }
 
 write_rankcommands() {
@@ -1249,7 +1272,7 @@ Captain DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANC
 Admiral DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR RANKSET RANKUSER MYDETAILS THREADDUMP GIVEMETA FDEPOSIT FWITHDRAW FBALANCE
 Admin -ALL-
 _EOF_"
-	as_user "$CREATERANK"
+	$CREATERANK
 }
 
 write_tipfile() {
@@ -1261,7 +1284,7 @@ Need to get some money? Take some out of your bank account with !WITHDRAW
 Stuck in the middle of nowhere but dont want to suicide? Try !CORE
 Want to secretly use a command? Try using a command inside a PM to yourself!
 _EOF_"
-	as_user "$CREATETIP"
+	$CREATETIP
 }
 
 create_configpath() {
@@ -1330,14 +1353,14 @@ update_file() {
 	IFS=$'\n'
 # Create an array of the old file
 	OLDFILESTRING=( $(cat $PATHUPDATEFILE) )
-	as_user "rm $PATHUPDATEFILE"
+	rm $PATHUPDATEFILE
 # $1 is the write file function for the file being updated and if $2 is set it will use specific file
 	$1 $2
 # Put the newly written file into an array
 	NEWFILESTRING=( $(cat $PATHUPDATEFILE) )
 	IFS=$OLD_IFS
 	NEWARRAY=0
-	as_user "rm $PATHUPDATEFILE"
+	rm $PATHUPDATEFILE
 # The following rewrites the config file and preserves values from the old configuration file 
 	while [ -n "${NEWFILESTRING[$NEWARRAY]+set}" ]
 	do
@@ -1367,7 +1390,7 @@ update_file() {
 			let OLDARRAY++
 		done
 #		echo "Here is the writestring $WRITESTRING"	
-		as_user "cat <<EOF >> $PATHUPDATEFILE
+		cat "<<EOF >> $PATHUPDATEFILE
 	$WRITESTRING
 	EOF"
 	let NEWARRAY++
@@ -1396,7 +1419,7 @@ update_daemon() {
 	done
 	CURRENTHASH=$(md5sum $DAEMONPATH |  cut -d" " -f1 | tr -d ' ')
 # Update the HASH
-	as_user "sed -i 's/HASH=.*/HASH=$CURRENTHASH/g' $CONFIGPATH"
+	sed -i 's/HASH=.*/HASH=$CURRENTHASH/g' $CONFIGPATH
 }
 
 # source the chatcommand.sh file
