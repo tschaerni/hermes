@@ -2,7 +2,7 @@
 
 #
 # Hermes, a wrapper for StarMade Servers
-# by tschaerni, robin@cerny.li
+# by tschaerni, <robin@cerny.li>
 # 
 # Heavy based on the Doomsider's and Titansmasher's Daemon Script for StarMade
 # All credits to Andrew, Reed and Danny for the initial work
@@ -96,6 +96,10 @@ sm_config() {
 	fi
 }
 
+sm_pscheck(){
+	pgrep java | grep $SERVICE | grep port:$PORT > /dev/null
+}
+
 sm_checkdir() {
 	if [ ! -d "$STARTERPATH/logs" ]
 	then
@@ -129,7 +133,7 @@ sm_start() {
 		exit
 	fi
 # Check if server is running already by checking for Screenid in the screen list
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	if sm_pscheck
 	then
 		echo "Tried to start but $SERVICE was already running!"
 	else
@@ -156,7 +160,7 @@ sm_start() {
 # Created a limited loop to see when the server starts
 		for LOOPNO in {0..7}
 		do
-			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+			if sm_pscheck
 			then
 				break
 			else
@@ -164,7 +168,7 @@ sm_start() {
 				sleep 1
 			fi
 		done
-		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
+		if sm_pscheck 
 		then
 			echo "$SERVICE is now running."
 			echo '' > $ONLINELOG
@@ -180,7 +184,7 @@ sm_start() {
 }
 
 sm_stop() {
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if sm_pscheck
 	then
 		echo "$SERVICE is running... stopping."
 # Issue Chat and a command to the server to shutdown
@@ -190,7 +194,7 @@ sm_stop() {
 		sleep 60
 		for LOOPNO in {0..60}
 		do
-			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+			if sm_pscheck
 			then
 				sleep 1
 			else
@@ -199,14 +203,14 @@ sm_stop() {
 				break
 			fi
 		done
-		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+		if sm_pscheck
 		then
 			echo $SERVICE is taking too long to close and may be frozen. Forcing shut down
 			PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')
 			kill $PID
 			for LOOPNO in {0..60}
 			do
-				if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
+				if sm_pscheck 
 				then
 					sleep 1
 				else
@@ -215,7 +219,7 @@ sm_stop() {
 					break
 				fi
 			done
-			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null 
+			if sm_pscheck
 			then
 				PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')
 				kill -9 $PID
@@ -231,7 +235,7 @@ sm_stop() {
 }
 
 sm_backup() {
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if sm_pscheck
 	then
 		echo "$SERVICE is running! Will not start backup."
 	else
@@ -257,7 +261,7 @@ sm_backup() {
 
 sm_livebackup() {
 # WARNING! Live Backup make only a Backup of the Database! Because, some other dirs and files are in use
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if sm_pscheck
 	then
 		if [ -d "$BACKUP" ]
 		then
@@ -312,7 +316,7 @@ sm_livebackup() {
 }
 
 sm_destroy() {
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	if sm_pscheck
 	then
 		echo "$SERVICE is running! Will not start destroy."
 	else
@@ -326,7 +330,7 @@ sm_destroy() {
 }
 
 sm_install() {
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	if sm_pscheck
 	then
 		echo "$SERVICE is running! Will not start install"
 	else
@@ -350,7 +354,7 @@ sm_install() {
 }
 
 sm_upgrade() {
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT >/dev/null
+	if sm_pscheck
 	then
 		echo "$SERVICE is running! Will not start Install"
 	else
@@ -451,7 +455,7 @@ sm_check() {
 }
 
 sm_ebrake() {
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	if sm_pscheck
 	then
 		PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep -v rlwrap | grep port:$PORT | awk '{print $2}')
 		jstack $PID >> $STARTERPATH/logs/threaddump.log
@@ -459,7 +463,7 @@ sm_ebrake() {
 # Give server a chance to gracefully shut down
 		for LOOPNO in {0..30}
 		do
-			if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+			if sm_pscheck
 			then
 				sleep 1
 			else
@@ -469,7 +473,7 @@ sm_ebrake() {
 			fi
 		done
 # Check to make sure server is shut down if not kill it with a seg fault.
-		if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+		if sm_pscheck
 		then
 			PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v rlwrap | grep -v tee | grep port:$PORT | awk '{print $2}')
 # This was added in to troubleshoot freezes at the request of Schema
@@ -490,7 +494,7 @@ sm_ebrake() {
 
 sm_detect() {
 # Special thanks to Fire219 for providing the means to test this script.  Appreciation to Titansmasher for collaboration.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	if sm_pscheck
 	then
 # Add in a routine to check for STDERR: [SQL] Fetching connection 
 # Send the curent time as a serverwide message
@@ -523,7 +527,7 @@ sm_detect() {
 
 sm_screenlog() {
 # Start logging in a screen
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	if sm_pscheck
 	then
 		echo "Starmade is running checking for logging."
 # Make sure smlog is not already running
@@ -546,7 +550,7 @@ sm_screenlog() {
 
 sm_status() {
 # Check to see is Starmade is running or not
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null 
+	if sm_pscheck 
 	then
 		echo "Starmade Server is running."
 	else
@@ -556,7 +560,7 @@ sm_status() {
 
 sm_say() {
 # Check to see if server is running and if so pass the second argument as a chat command to server.  Use quotes if you use spaces.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	if sm_pscheck
 	then
 		SAYSTRING=$(echo $@ | cut -d" " -f2- | tr -d '<>()!@#$%^&*/[]{},\\' | sed "s/'//g" | sed "s/\"//g")
 		screen -p 0 -S $SCREENID -X stuff $'/chat $SAYSTRING\n'
@@ -567,7 +571,7 @@ sm_say() {
 
 sm_do() {
 # Check for starmade running the passes second argument as a command on server.  Use quotations if you have spaces in command.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	if sm_pscheck
 	then
 		DOSTRING=$(echo $@ | cut -d" " -f2- | tr -d '<>()!@#$%^&*/[]{},\\' | sed "s/'//g" | sed "s/\"//g")
 		screen -p 0 -S $SCREENID -X stuff $'/$2\n'
@@ -578,7 +582,7 @@ sm_do() {
 
 sm_restore() {
 # Checks for server running and then restores the given backup zip file.  It pulls from the backup directory so no path is needed.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	if sm_pscheck
 	then
 		echo "Starmade Server is running."
 		else
@@ -590,7 +594,7 @@ sm_restore() {
 
 sm_dump() {
 # Check to see if server is running and if so pass the second argument as a chat command to server.  Use quotes if you use spaces.
-	if ps aux | grep $SERVICE | grep -v grep | grep -v rlwrap | grep -v tee | grep port:$PORT > /dev/null
+	if sm_pscheck
 	then
 		if [ "$#" -ne "2" ] 
 		then
@@ -652,7 +656,7 @@ sm_log() {
 # Create the playerfile folder if it doesnt exist
 	mkdir -p $PLAYERFILE
 # This while loop runs as long as starmade stays running    
-	while (ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep -v rlwrap | grep port:$PORT > /dev/null)
+	while sm_pscheck
 	do
 # A tiny sleep to prevent cpu burning overhead
 		sleep 0.1
@@ -1233,6 +1237,7 @@ BANKLOG=$STARTERPATH/logs/bank.log #The file that contains all transactions made
 ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of currently online players
 TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players
 FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual faction files
+CHECKSUMFILE=$STARTERPATH/logs/checksums.log #The file with the checksums of the backups
 #------------------------Game settings----------------------------------------------------------------------------
 VOTECHECKDELAY=10 #The time in seconds between each check of starmade-servers.org
 CREDITSPERVOTE=1000000 # The number of credits a player gets per voting point.
