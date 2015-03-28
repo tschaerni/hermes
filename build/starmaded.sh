@@ -610,7 +610,7 @@ sm_dump() {
 			sleep $delay
 			let count--
 		done
-		else
+	else
 		echo "$SERVICE not running"
 	fi
 }
@@ -628,6 +628,7 @@ sm_help() {
 	echo "smsay words - Say something as the server.  Use quotes if there are spaces"
 	echo "backup - backs up current Starmade directory as zip"
 	echo "backupstar - Stops cron and server, makes backup, restarts cron and server"
+	echo "livebackup - Make a backup of the running server, use with caution, databases bigger then 10GB need alot of memory"
 	echo "status - See if server is running"
 	echo "cronstop - Removes all cronjobs"
 	echo "cronrestore - Restores all cronjobs"
@@ -1210,7 +1211,7 @@ CONFIGCREATE="cat > $CONFIGPATH <<_EOF_
 #  Backup is the path you want to move you backups to
 #  Starterpath is where you starter file is located.  Starmade folder will be located in this directory
 #  Maxmemory controls the total amount Java can use.  It is the -xmx variable in Java
-#  Minmemory is the inital amounr of memory to use.  It is the -xms variable in Java
+#  Minmemory is the inital amount of memory to use.  It is the -xms variable in Java
 #  Port is the port that Starmade will use.  Set to 4242 by default.
 #  Logging is for turning on or off with a YES or a NO
 #  Daemon Path is only used if you are going to screen log
@@ -1428,10 +1429,14 @@ update_daemon() {
 }
 
 # source the chatcommand.sh file
-
-if [ -e $CONFIGPATH/chatcommands.sh ]
+if [ "$LOGGING" = "YES" ]
 then
-	source $CONFIGPATH/chatcommands.sh
+	if [ -e $CONFIGPATH/chatcommands.sh ]
+	then
+		source $CONFIGPATH/chatcommands.sh
+	else
+		echo "$CONFIGPATH/chatcommands.sh is missing"
+	fi
 fi
 
 #------------------------------Start of daemon script-----------------------------------------
@@ -1498,14 +1503,8 @@ case "$1" in
 	smdo)
 		sm_do $@
 	;;
-	setplayermax)
-		sm_setplayermax $@
-	;;
 	restore)
 		sm_restore $@
-	;;
-	ban)
-		sm_ban $@
 	;;
 	dump)
 		sm_dump $@
@@ -1550,7 +1549,7 @@ case "$1" in
 	;;
 	*)
 		echo "DTSDlite V 0.9.0-alpha"
-		echo "Usage: starmaded.sh {help|updatefiles|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|livebackup|backupstar|setplayermax|detect|log|screenlog|check|precheck|ban|dump|box}"
+		echo "Usage: starmaded.sh {help|updatefiles|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|livebackup|backupstar|detect|log|screenlog|check|precheck|dump|box}"
 		exit 1
 	;;
 esac
