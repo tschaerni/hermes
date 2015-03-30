@@ -1197,14 +1197,13 @@ function_exists(){
 #---------------------------Files Daemon Writes and Updates---------------------------------------------
 
 write_factionfile() { 
-CREATEFACTION="cat > $FACTIONFILE/$1 <<_EOF_
+cat > $FACTIONFILE/$1 <<_EOF_
 CreditsInBank=0
-_EOF_"
-	$CREATEFACTION
+_EOF_
 }
 
 write_configpath() {
-CONFIGCREATE="cat > $CONFIGPATH <<_EOF_
+cat > $CONFIGPATH <<_EOF_
 #  Settings below can all be custom tailored to any setup.
 #  Username is your user on the server that runs starmade
 #  Backupname is the name you want your backup file to have
@@ -1245,12 +1244,11 @@ VOTECHECKDELAY=10 #The time in seconds between each check of starmade-servers.or
 CREDITSPERVOTE=1000000 # The number of credits a player gets per voting point.
 TIPINTERVAL=600 #Number of seconds between each tip being shown
 STARTINGRANK=Ensign #The initial rank players recieve when they log in for the first time. Can be edited.
-_EOF_"
-	$CONFIGCREATE
+_EOF_
 }
 
 write_playerfile() {
-PLAYERCREATE="cat > $PLAYERFILE/$1 <<_EOF_
+cat > $PLAYERFILE/$1 <<_EOF_
 Rank=$STARTINGRANK
 Language=en
 CreditsInBank=0
@@ -1266,32 +1264,29 @@ PlayerLastUpdate=0
 PlayerLoggedIn=No
 ChatCount=0
 JustLoggedIn=No
-_EOF_"
-	$PLAYERCREATE
+_EOF_
 }
 
 write_rankcommands() {
-CREATERANK="cat > $RANKCOMMANDS <<_EOF_
+cat > $RANKCOMMANDS <<_EOF_
 Ensign DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE CLEAR FDEPOSIT FWITHDRAW FBALANCE
 Lieutenant WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
 Commander DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
 Captain DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR FDEPOSIT FWITHDRAW FBALANCE
 Admiral DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND VOTEBALANCE PING HELP CORE SEARCH CLEAR RANKSET RANKUSER MYDETAILS THREADDUMP GIVEMETA FDEPOSIT FWITHDRAW FBALANCE
 Admin -ALL-
-_EOF_"
-	$CREATERANK
+_EOF_
 }
 
 write_tipfile() {
-CREATETIP="cat > $TIPFILE <<_EOF_
+cat > $TIPFILE <<_EOF_
 !HELP is your friend! If you are stuck on a command, use !HELP <Command>
 Ever wanted to be rewarded for voting for the server? Vote now at starmade-servers.org to get voting points!
 Got too much money? Store some in your bank account with !DEPOSIT
 Need to get some money? Take some out of your bank account with !WITHDRAW
 Stuck in the middle of nowhere but dont want to suicide? Try !CORE
 Want to secretly use a command? Try using a command inside a PM to yourself!
-_EOF_"
-	$CREATETIP
+_EOF_
 }
 
 create_configpath() {
