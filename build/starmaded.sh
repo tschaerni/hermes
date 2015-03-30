@@ -31,10 +31,11 @@ CURRENTHASH=$(md5sum $DAEMONPATH |  cut -d" " -f1 | tr -d ' ')
 
 # Since this is a Daemon it can be called on from anywhere from just about anything.  This function below ensures the Daemon is using the proper user for the correct privileges
 # Must be removed
-if [ "$ME" != "$USERNAME" ]
-then
-	echo "You are using the wrong user, please log in as $USERNAME."
-fi
+
+#if [ "$ME" != "$USERNAME" ]
+#then
+#	echo "You are using the wrong user, please log in as $USERNAME."
+#fi
 
 #------------------------------Daemon functions-----------------------------------------
 # Dependency check for the whole daemon
